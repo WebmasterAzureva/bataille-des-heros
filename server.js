@@ -40,7 +40,6 @@ const CardDB = {
     ]
 };
 
-// ==================== GAME ROOMS ====================
 const rooms = new Map();
 const playerRooms = new Map();
 const TURN_TIME = 90;
@@ -77,7 +76,6 @@ function createPlayerState() {
         hand,
         field: Array(4).fill(null).map(() => Array(2).fill(null)),
         traps: [null, null, null, null],
-        actions: { movements: [], placements: [], spells: [], traps: [] },
         ready: false,
         connected: false
     };
@@ -88,21 +86,13 @@ function createGameState() {
         turn: 1,
         phase: 'planning',
         timeLeft: TURN_TIME,
-        players: { 1: createPlayerState(), 2: createPlayerState() },
-        resolutionLog: []
+        players: { 1: createPlayerState(), 2: createPlayerState() }
     };
 }
 
 function getPublicGameState(room, forPlayer) {
     const state = room.gameState;
     const opponent = forPlayer === 1 ? 2 : 1;
-    
-    let myCreatureCount = 0;
-    for (let r = 0; r < 4; r++) {
-        for (let c = 0; c < 2; c++) {
-            if (state.players[forPlayer].field[r][c]) myCreatureCount++;
-        }
-    }
     
     return {
         turn: state.turn,
@@ -117,8 +107,7 @@ function getPublicGameState(room, forPlayer) {
             deckCount: state.players[forPlayer].deck.length,
             field: state.players[forPlayer].field,
             traps: state.players[forPlayer].traps,
-            ready: state.players[forPlayer].ready,
-            creatureCount: myCreatureCount
+            ready: state.players[forPlayer].ready
         },
         opponent: {
             hp: state.players[opponent].hp,
@@ -129,8 +118,7 @@ function getPublicGameState(room, forPlayer) {
             field: state.players[opponent].field,
             trapsCount: state.players[opponent].traps.filter(t => t !== null).length,
             ready: state.players[opponent].ready
-        },
-        resolutionLog: state.resolutionLog
+        }
     };
 }
 
@@ -139,10 +127,15 @@ function startTurnTimer(room) {
     room.gameState.timeLeft = TURN_TIME;
     room.gameState.phase = 'planning';
     
+    // Reset ready states
+    room.gameState.players[1].ready = false;
+    room.gameState.players[2].ready = false;
+    
     room.timer = setInterval(() => {
         room.gameState.timeLeft--;
         io.to(room.code).emit('timerUpdate', room.gameState.timeLeft);
         if (room.gameState.timeLeft <= 0) {
+            clearInterval(room.timer);
             room.gameState.players[1].ready = true;
             room.gameState.players[2].ready = true;
             startResolution(room);
@@ -159,12 +152,10 @@ function checkBothReady(room) {
 async function startResolution(room) {
     if (room.timer) clearInterval(room.timer);
     room.gameState.phase = 'resolution';
-    room.gameState.resolutionLog = [];
     
     io.to(room.code).emit('phaseChange', 'resolution');
     
     const log = (msg, type) => {
-        room.gameState.resolutionLog.push({ msg, type });
         io.to(room.code).emit('resolutionLog', { msg, type });
     };
     
@@ -174,7 +165,7 @@ async function startResolution(room) {
         if (room.players[2]) io.to(room.players[2]).emit('gameStateUpdate', getPublicGameState(room, 2));
     };
     
-    log('⚔️ RÉSOLUTION DU TOUR ' + room.gameState.turn, 'phase');
+    log(`⚔️ RÉSOLUTION DU TOUR ${room.gameState.turn}`, 'phase');
     await sleep(500);
     
     // 1. Pioche
@@ -192,69 +183,11 @@ async function startResolution(room) {
     }
     log('📦 Les joueurs piochent une carte', 'action');
     emitState();
-    await sleep(600);
-    
-    // 2. Mouvements
-    for (let p = 1; p <= 2; p++) {
-        for (const m of room.gameState.players[p].actions.movements) {
-            log(`🔄 J${p}: ${m.card.name} se déplace`, 'action');
-        }
-    }
-    await sleep(300);
-    
-    // 3. Placements
-    for (let p = 1; p <= 2; p++) {
-        for (const pl of room.gameState.players[p].actions.placements) {
-            log(`🎴 J${p}: ${pl.card.name} entre en jeu`, 'action');
-        }
-    }
-    emitState();
     await sleep(400);
     
-    // 4. Pièges
-    for (let p = 1; p <= 2; p++) {
-        for (const t of room.gameState.players[p].actions.traps) {
-            log(`🪤 J${p}: Piège posé`, 'trap');
-        }
-    }
-    await sleep(300);
-    
-    // 5. Sorts défensifs
-    for (let p = 1; p <= 2; p++) {
-        for (const action of room.gameState.players[p].actions.spells.filter(s => !s.spell.offensive)) {
-            const target = room.gameState.players[action.targetPlayer].field[action.row][action.col];
-            if (target && action.spell.heal) {
-                target.currentHp = Math.min(target.hp, target.currentHp + action.spell.heal);
-                log(`💚 ${action.spell.name} sur ${target.name} (+${action.spell.heal})`, 'heal');
-                io.to(room.code).emit('spellEffect', { type: 'heal', player: action.targetPlayer, row: action.row, col: action.col });
-            }
-            emitState();
-            await sleep(400);
-        }
-    }
-    
-    // 6. Sorts offensifs
-    for (let p = 1; p <= 2; p++) {
-        for (const action of room.gameState.players[p].actions.spells.filter(s => s.spell.offensive)) {
-            const target = room.gameState.players[action.targetPlayer].field[action.row][action.col];
-            if (target && action.spell.damage) {
-                target.currentHp -= action.spell.damage;
-                log(`💥 ${action.spell.name} sur ${target.name} (-${action.spell.damage})`, 'damage');
-                io.to(room.code).emit('spellEffect', { type: 'damage', player: action.targetPlayer, row: action.row, col: action.col });
-                if (target.currentHp <= 0) {
-                    await sleep(300);
-                    room.gameState.players[action.targetPlayer].field[action.row][action.col] = null;
-                    log(`☠️ ${target.name} détruit!`, 'damage');
-                }
-            }
-            emitState();
-            await sleep(400);
-        }
-    }
-    
-    // 7. Combat
+    // 2. Combat
     log('⚔️ Phase de combat', 'phase');
-    await sleep(400);
+    await sleep(300);
     
     for (let row = 0; row < 4; row++) {
         for (let col = 1; col >= 0; col--) {
@@ -263,7 +196,7 @@ async function startResolution(room) {
         }
     }
     
-    // 8. Activer cartes
+    // 3. Activer cartes pour prochain tour
     for (let p = 1; p <= 2; p++) {
         for (let r = 0; r < 4; r++) {
             for (let c = 0; c < 2; c++) {
@@ -278,8 +211,12 @@ async function startResolution(room) {
     }
     
     // Victoire ?
-    if (room.gameState.players[1].hp <= 0 || room.gameState.players[2].hp <= 0) {
-        const winner = room.gameState.players[1].hp <= 0 ? 2 : 1;
+    const p1hp = room.gameState.players[1].hp;
+    const p2hp = room.gameState.players[2].hp;
+    
+    if (p1hp <= 0 || p2hp <= 0) {
+        await sleep(500);
+        const winner = p1hp <= 0 ? 2 : 1;
         log(`🏆 JOUEUR ${winner} GAGNE!`, 'phase');
         io.to(room.code).emit('gameOver', { winner });
         return;
@@ -298,8 +235,6 @@ async function processCombat(room, ap, row, col, log, emitState) {
     const db = room.gameState.players[dp].field[row][1];
     
     const fly = attacker.abilities.includes('fly');
-    const shooter = attacker.abilities.includes('shooter');
-    const back = col === 1;
     
     let blocker = null, bc = -1;
     if (df && (!fly || df.abilities.includes('fly') || df.abilities.includes('shooter'))) { blocker = df; bc = 0; }
@@ -310,22 +245,20 @@ async function processCombat(room, ap, row, col, log, emitState) {
     // Piège
     const trap = room.gameState.players[dp].traps[row];
     if (trap && !blocker) {
-        log(`🪤 Piège déclenché sur ${attacker.name}!`, 'trap');
+        log(`🪤 Piège "${trap.name}" sur ${attacker.name}!`, 'trap');
         if (trap.damage) {
             attacker.currentHp -= trap.damage;
-            log(`💥 ${attacker.name} -${trap.damage}`, 'damage');
         }
         if (trap.effect === 'stun') {
             attacker.stunned = true;
-            log(`💫 ${attacker.name} paralysé!`, 'trap');
         }
         room.gameState.players[dp].traps[row] = null;
         emitState();
-        await sleep(400);
+        await sleep(300);
         
         if (attacker.currentHp <= 0) {
             room.gameState.players[ap].field[row][col] = null;
-            log(`☠️ ${attacker.name} détruit!`, 'damage');
+            log(`☠️ ${attacker.name} détruit par piège!`, 'damage');
             emitState();
             return;
         }
@@ -337,21 +270,20 @@ async function processCombat(room, ap, row, col, log, emitState) {
         log(`⚔️ ${attacker.name} → Héros J${dp} (-${attacker.atk})`, 'damage');
         io.to(room.code).emit('directDamage', { defender: dp, damage: attacker.atk });
         emitState();
-        await sleep(500);
+        await sleep(400);
         return;
     }
     
     blocker.currentHp -= attacker.atk;
     log(`⚔️ ${attacker.name} → ${blocker.name} (-${attacker.atk})`, 'damage');
     
-    // Riposte
     if (blocker.canAttack && blocker.currentHp > 0) {
         attacker.currentHp -= blocker.atk;
         log(`↩️ ${blocker.name} riposte (-${blocker.atk})`, 'damage');
     }
     
     emitState();
-    await sleep(400);
+    await sleep(300);
     
     if (blocker.currentHp <= 0) {
         room.gameState.players[dp].field[row][bc] = null;
@@ -362,27 +294,41 @@ async function processCombat(room, ap, row, col, log, emitState) {
         log(`☠️ ${attacker.name} détruit!`, 'damage');
     }
     emitState();
-    await sleep(300);
+    await sleep(200);
 }
 
 function startNewTurn(room) {
     room.gameState.turn++;
+    
     for (let p = 1; p <= 2; p++) {
         const player = room.gameState.players[p];
         player.maxEnergy = Math.min(10, player.maxEnergy + 1);
         player.energy = player.maxEnergy;
-        player.ready = false;
-        player.actions = { movements: [], placements: [], spells: [], traps: [] };
+        player.ready = false; // IMPORTANT: reset ready
+        
         for (let r = 0; r < 4; r++) {
             for (let c = 0; c < 2; c++) {
-                if (player.field[r][c]) player.field[r][c].movedThisTurn = false;
+                if (player.field[r][c]) {
+                    player.field[r][c].movedThisTurn = false;
+                }
             }
         }
     }
     
-    io.to(room.code).emit('newTurn', { turn: room.gameState.turn, maxEnergy: room.gameState.players[1].maxEnergy });
+    room.gameState.phase = 'planning';
+    room.gameState.timeLeft = TURN_TIME;
+    
+    // Emit new turn FIRST
+    io.to(room.code).emit('newTurn', { 
+        turn: room.gameState.turn, 
+        maxEnergy: room.gameState.players[1].maxEnergy 
+    });
+    
+    // Then emit updated state
     if (room.players[1]) io.to(room.players[1]).emit('gameStateUpdate', getPublicGameState(room, 1));
     if (room.players[2]) io.to(room.players[2]).emit('gameStateUpdate', getPublicGameState(room, 2));
+    
+    // Start timer AFTER emitting
     startTurnTimer(room);
 }
 
@@ -422,7 +368,8 @@ io.on('connection', (socket) => {
         const info = playerRooms.get(socket.id);
         if (!info) return;
         const room = rooms.get(info.code);
-        if (!room || room.gameState.phase !== 'planning' || room.gameState.players[info.playerNum].ready) return;
+        if (!room || room.gameState.phase !== 'planning') return;
+        if (room.gameState.players[info.playerNum].ready) return;
         
         const player = room.gameState.players[info.playerNum];
         const { handIndex, row, col } = data;
@@ -437,15 +384,21 @@ io.on('connection', (socket) => {
         const placed = { ...card, turnsOnField: 0, canAttack: card.abilities?.includes('haste'), currentHp: card.hp, movedThisTurn: false };
         player.field[row][col] = placed;
         player.hand.splice(handIndex, 1);
-        player.actions.placements.push({ card: placed, row, col });
+        
         socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+        // Also update opponent view
+        const oppNum = info.playerNum === 1 ? 2 : 1;
+        if (room.players[oppNum]) {
+            io.to(room.players[oppNum]).emit('gameStateUpdate', getPublicGameState(room, oppNum));
+        }
     });
     
     socket.on('moveCard', (data) => {
         const info = playerRooms.get(socket.id);
         if (!info) return;
         const room = rooms.get(info.code);
-        if (!room || room.gameState.phase !== 'planning' || room.gameState.players[info.playerNum].ready) return;
+        if (!room || room.gameState.phase !== 'planning') return;
+        if (room.gameState.players[info.playerNum].ready) return;
         
         const player = room.gameState.players[info.playerNum];
         const { fromRow, fromCol, toRow, toCol } = data;
@@ -462,32 +415,57 @@ io.on('connection', (socket) => {
         card.movedThisTurn = true;
         player.field[toRow][toCol] = card;
         player.field[fromRow][fromCol] = null;
-        player.actions.movements.push({ card, from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } });
+        
         socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+        const oppNum = info.playerNum === 1 ? 2 : 1;
+        if (room.players[oppNum]) {
+            io.to(room.players[oppNum]).emit('gameStateUpdate', getPublicGameState(room, oppNum));
+        }
     });
     
     socket.on('castSpell', (data) => {
         const info = playerRooms.get(socket.id);
         if (!info) return;
         const room = rooms.get(info.code);
-        if (!room || room.gameState.phase !== 'planning' || room.gameState.players[info.playerNum].ready) return;
+        if (!room || room.gameState.phase !== 'planning') return;
+        if (room.gameState.players[info.playerNum].ready) return;
         
         const player = room.gameState.players[info.playerNum];
         const { handIndex, targetPlayer, row, col } = data;
         const spell = player.hand[handIndex];
         if (!spell || spell.type !== 'spell' || spell.cost > player.energy) return;
         
+        const target = room.gameState.players[targetPlayer].field[row][col];
+        if (!target) return; // Spell needs a target
+        
         player.energy -= spell.cost;
-        player.actions.spells.push({ spell, targetPlayer, row, col });
+        
+        // Apply spell effect immediately (or queue it)
+        if (spell.offensive && spell.damage) {
+            target.currentHp -= spell.damage;
+            if (target.currentHp <= 0) {
+                room.gameState.players[targetPlayer].field[row][col] = null;
+            }
+        }
+        if (!spell.offensive && spell.heal) {
+            target.currentHp = Math.min(target.hp, target.currentHp + spell.heal);
+        }
+        
         player.hand.splice(handIndex, 1);
+        
         socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+        const oppNum = info.playerNum === 1 ? 2 : 1;
+        if (room.players[oppNum]) {
+            io.to(room.players[oppNum]).emit('gameStateUpdate', getPublicGameState(room, oppNum));
+        }
     });
     
     socket.on('placeTrap', (data) => {
         const info = playerRooms.get(socket.id);
         if (!info) return;
         const room = rooms.get(info.code);
-        if (!room || room.gameState.phase !== 'planning' || room.gameState.players[info.playerNum].ready) return;
+        if (!room || room.gameState.phase !== 'planning') return;
+        if (room.gameState.players[info.playerNum].ready) return;
         
         const player = room.gameState.players[info.playerNum];
         const { handIndex, trapIndex } = data;
@@ -497,7 +475,7 @@ io.on('connection', (socket) => {
         player.energy -= trap.cost;
         player.traps[trapIndex] = trap;
         player.hand.splice(handIndex, 1);
-        player.actions.traps.push({ card: trap, index: trapIndex });
+        
         socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
     });
     
@@ -506,8 +484,11 @@ io.on('connection', (socket) => {
         if (!info) return;
         const room = rooms.get(info.code);
         if (!room || room.gameState.phase !== 'planning') return;
+        if (room.gameState.players[info.playerNum].ready) return;
+        
         room.gameState.players[info.playerNum].ready = true;
         io.to(room.code).emit('playerReady', info.playerNum);
+        
         checkBothReady(room);
     });
     
