@@ -51,7 +51,7 @@
         .timer-text { font-size: 1.8em; margin-top: 2px; }
         
         /* PHASE INDICATOR */
-        .phase-indicator { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); padding: 8px 25px; background: rgba(155,89,182,0.9); border-radius: 20px; border: 2px solid #bb8fce; font-size: 0.85em; z-index: 90; white-space: nowrap; }
+        .phase-indicator { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); padding: 8px 25px; background: rgba(46,204,113,0.9); border-radius: 20px; border: 2px solid #58d68d; font-size: 0.85em; z-index: 90; white-space: nowrap; }
         .phase-indicator.redeploy { background: rgba(52,152,219,0.9); border-color: #5dade2; }
         .phase-indicator.deploy { background: rgba(46,204,113,0.9); border-color: #58d68d; }
         .phase-indicator.resolution { background: rgba(231,76,60,0.9); border-color: #ec7063; }
@@ -78,8 +78,6 @@
         /* BATTLEFIELD */
         .battlefield { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; padding: 12px; background: rgba(0,0,0,0.4); border-radius: 12px; border: 2px solid rgba(139,115,85,0.4); }
         .bf-side { display: grid; grid-template-columns: repeat(2, 115px); grid-template-rows: repeat(4, 155px); gap: 5px; }
-        .bf-side.opp { direction: rtl; }
-        .bf-side.opp > * { direction: ltr; }
         .trap-col { display: flex; flex-direction: column; gap: 12px; justify-content: center; }
         
         /* CARD SLOT */
@@ -122,8 +120,14 @@
         .card.just-played { opacity: 0.6; }
         .card.just-played::after { content: '💤'; position: absolute; top: 4px; right: 4px; font-size: 0.85em; }
         .card.can-attack { box-shadow: 0 0 12px rgba(231,76,60,0.8); }
-        .card.unplayable { opacity: 0.35; filter: grayscale(80%); cursor: not-allowed; }
         .card.field-selected { box-shadow: 0 0 20px rgba(52,152,219,0.9); border-color: #3498db !important; }
+        
+        /* UNPLAYABLE - TRANSPARENCY */
+        .card.unplayable { 
+            opacity: 0.35 !important; 
+            filter: grayscale(70%) brightness(0.7); 
+            cursor: not-allowed !important; 
+        }
         
         /* MY HAND - OVERLAPPING CARDS */
         .my-hand { 
@@ -139,19 +143,19 @@
             max-width: calc(55% - 130px);
         }
         .my-hand .card {
-            margin-left: -60px;
+            margin-left: -55px;
             transition: transform 0.2s, z-index 0s, margin 0.2s;
         }
         .my-hand .card:first-child {
             margin-left: 0;
         }
-        .my-hand .card:hover {
+        .my-hand .card:hover:not(.unplayable) {
             transform: translateY(-40px) scale(1.05);
             z-index: 100;
             margin-left: 0;
             margin-right: 10px;
         }
-        .my-hand .card:hover + .card {
+        .my-hand .card:hover:not(.unplayable) + .card {
             margin-left: 0;
         }
         .my-hand .card.selected {
@@ -200,7 +204,7 @@
             white-space: nowrap;
         }
         
-        /* INFO & LOG */
+        /* LOG */
         .log-btn { position: absolute; top: 60px; right: 15px; width: 38px; height: 38px; border-radius: 50%; background: #5a4a3a; border: 2px solid #8b7355; cursor: pointer; font-size: 1.1em; display: flex; align-items: center; justify-content: center; }
         .log-popup { position: absolute; top: 105px; right: 15px; width: 280px; max-height: 280px; background: rgba(20,20,40,0.98); border: 2px solid #8b7355; border-radius: 10px; padding: 10px; display: none; z-index: 100; }
         .log-popup.active { display: block; }
@@ -256,7 +260,7 @@
             <span>FIN DU</span><span>TOUR</span><span class="timer-text" id="timer">90</span>
         </button>
         
-        <div class="phase-indicator" id="phase-indicator">🎴 Phase de Déploiement</div>
+        <div class="phase-indicator deploy" id="phase-indicator">🎴 Phase de Déploiement</div>
         
         <div class="hero-zone me">
             <div class="hero-card">
@@ -316,8 +320,9 @@
     <script>
         let socket, myNum = 0, state = null;
         let selected = null, dragged = null, targeting = false;
-        let currentPhase = 'deploy'; // 'redeploy' ou 'deploy'
+        let currentPhase = 'deploy';
         let hasCreatures = false;
+        let isMyTurnReady = false;
         
         function initSocket() {
             socket = io();
@@ -325,6 +330,7 @@
             socket.on('gameStart', (s) => {
                 state = s;
                 myNum = s.myPlayer;
+                isMyTurnReady = false;
                 setupHeroes();
                 document.getElementById('lobby').classList.add('hidden');
                 document.getElementById('game-container').classList.add('active');
@@ -335,7 +341,9 @@
             });
             
             socket.on('gameStateUpdate', (s) => { 
-                state = s; 
+                state = s;
+                // Update ready state from server
+                isMyTurnReady = state.me.ready;
                 render(); 
             });
             
@@ -348,6 +356,8 @@
                 if(state) state.phase = p; 
                 if (p === 'resolution') {
                     setPhaseDisplay('resolution');
+                } else if (p === 'planning') {
+                    checkCreaturesAndSetPhase();
                 }
             });
             
@@ -355,11 +365,19 @@
                 const isMe = n === myNum;
                 document.getElementById(isMe ? 'me-ready' : 'opp-ready').classList.add('ready');
                 document.getElementById(isMe ? 'me-ready' : 'opp-ready').textContent = '✓';
+                if (isMe) {
+                    isMyTurnReady = true;
+                    updateButtonState();
+                }
                 log(isMe ? 'Vous êtes prêt' : 'Adversaire prêt', 'action');
             });
             
             socket.on('newTurn', (d) => {
-                // Reset ready states
+                console.log('NEW TURN:', d);
+                
+                // Reset all ready states
+                isMyTurnReady = false;
+                
                 document.getElementById('me-ready').classList.remove('ready');
                 document.getElementById('opp-ready').classList.remove('ready');
                 document.getElementById('me-ready').textContent = '';
@@ -371,8 +389,9 @@
                 btn.disabled = false;
                 btn.innerHTML = '<span>FIN DU</span><span>TOUR</span><span class="timer-text" id="timer">90</span>';
                 
-                // Check if we have creatures to set phase
-                checkCreaturesAndSetPhase();
+                // Update phase
+                currentPhase = 'deploy';
+                setPhaseDisplay('deploy');
                 
                 log(`🎮 Tour ${d.turn} — ⚡${d.maxEnergy} énergie`, 'phase');
             });
@@ -398,7 +417,6 @@
         function checkCreaturesAndSetPhase() {
             if (!state) return;
             
-            // Count creatures on my field
             let creatureCount = 0;
             for (let r = 0; r < 4; r++) {
                 for (let c = 0; c < 2; c++) {
@@ -440,6 +458,14 @@
                 currentPhase = 'deploy';
                 updatePhaseDisplay();
                 log('→ Phase de Déploiement', 'action');
+            }
+        }
+        
+        function updateButtonState() {
+            const btn = document.getElementById('end-turn-btn');
+            if (isMyTurnReady) {
+                btn.classList.add('waiting');
+                btn.innerHTML = '<span>EN</span><span>ATTENTE</span><span class="timer-text" id="timer">' + (state?.timeLeft || 90) + '</span>';
             }
         }
         
@@ -486,10 +512,13 @@
             const bfOpp = document.getElementById('bf-opp');
             bfMe.innerHTML = ''; bfOpp.innerHTML = '';
             
+            // My side: col1 (back) on left, col0 (front) on right
             for (let col = 1; col >= 0; col--)
                 for (let row = 0; row < 4; row++)
                     bfMe.appendChild(makeSlot('me', row, col));
             
+            // Opponent side: MIRRORED - col0 (front) on left, col1 (back) on right
+            // This makes opponent's front face my front
             for (let col = 0; col <= 1; col++)
                 for (let row = 0; row < 4; row++)
                     bfOpp.appendChild(makeSlot('opp', row, col));
@@ -510,7 +539,7 @@
             el.dataset.row = row;
             el.dataset.col = col;
             el.onclick = () => clickSlot(owner, row, col);
-            el.ondragover = (e) => { e.preventDefault(); el.classList.add('drag-over'); };
+            el.ondragover = (e) => { e.preventDefault(); if (canPlay()) el.classList.add('drag-over'); };
             el.ondragleave = () => el.classList.remove('drag-over');
             el.ondrop = (e) => { e.preventDefault(); el.classList.remove('drag-over'); dropOnSlot(owner, row, col); };
             return el;
@@ -523,14 +552,14 @@
             el.dataset.owner = owner;
             el.dataset.idx = idx;
             el.onclick = () => clickTrap(owner, idx);
-            el.ondragover = (e) => { e.preventDefault(); if(owner === 'me') el.classList.add('drag-over'); };
+            el.ondragover = (e) => { e.preventDefault(); if(owner === 'me' && canPlay()) el.classList.add('drag-over'); };
             el.ondragleave = () => el.classList.remove('drag-over');
             el.ondrop = (e) => { e.preventDefault(); el.classList.remove('drag-over'); dropOnTrap(owner, idx); };
             return el;
         }
         
         function canPlay() {
-            return state && state.phase === 'planning' && !state.me.ready;
+            return state && state.phase === 'planning' && !isMyTurnReady;
         }
         
         function render() {
@@ -551,18 +580,20 @@
             renderHand(me.hand, me.energy);
             renderOppHand(opp.handCount);
             
-            // Update ready indicators
+            // Check creatures for phase
+            checkCreaturesAndSetPhase();
+            
+            // Update ready indicators from state
             if (me.ready) {
                 document.getElementById('me-ready').classList.add('ready');
                 document.getElementById('me-ready').textContent = '✓';
-                const btn = document.getElementById('end-turn-btn');
-                btn.classList.add('waiting');
-                btn.innerHTML = '<span>EN</span><span>ATTENTE</span><span class="timer-text" id="timer">' + (state.timeLeft || 90) + '</span>';
             }
             if (opp.ready) {
                 document.getElementById('opp-ready').classList.add('ready');
                 document.getElementById('opp-ready').textContent = '✓';
             }
+            
+            updateButtonState();
         }
         
         function renderField(owner, field) {
@@ -608,8 +639,14 @@
             hand.forEach((card, i) => {
                 const el = makeCard(card, true);
                 el.dataset.idx = i;
-                if (card.cost > energy) el.classList.add('unplayable');
-                el.draggable = card.cost <= energy;
+                
+                // Mark unplayable cards
+                if (card.cost > energy) {
+                    el.classList.add('unplayable');
+                    el.draggable = false;
+                } else {
+                    el.draggable = true;
+                }
                 
                 el.onclick = (e) => { e.stopPropagation(); selectCard(i); };
                 el.ondragstart = (e) => {
@@ -641,7 +678,6 @@
                 el.textContent = '🎴';
                 panel.appendChild(el);
             }
-            // Add count label
             const countEl = document.createElement('div');
             countEl.className = 'opp-hand-count';
             countEl.textContent = count + ' cartes';
@@ -680,11 +716,11 @@
         
         function selectCard(i) {
             if (!canPlay()) return;
-            clearSel();
             
             const card = state.me.hand[i];
             if (card.cost > state.me.energy) return;
             
+            clearSel();
             selected = { ...card, idx: i, fromHand: true };
             document.querySelectorAll('.my-hand .card')[i]?.classList.add('selected');
             
@@ -696,20 +732,16 @@
         
         function clickFieldCard(row, col, card) {
             if (!canPlay()) return;
-            
-            // Only allow movement during redeploy phase
             if (currentPhase !== 'redeploy') return;
             if (card.movedThisTurn) return;
             
             clearSel();
             selected = { ...card, fromField: true, row, col };
             
-            // Highlight this card
             const slot = document.querySelector(`.card-slot[data-owner="me"][data-row="${row}"][data-col="${col}"]`);
             const cardEl = slot?.querySelector('.card');
             if (cardEl) cardEl.classList.add('field-selected');
             
-            // Highlight valid move destinations
             highlightMoveTargets(row, col, card);
         }
         
@@ -717,27 +749,24 @@
             const fly = card.abilities?.includes('fly');
             const shooter = card.abilities?.includes('shooter');
             
-            // Vertical movement (1 row)
             for (let r = 0; r < 4; r++) {
-                if (Math.abs(r - fromRow) === 1) {
-                    // Same column
-                    const slot = document.querySelector(`.card-slot[data-owner="me"][data-row="${r}"][data-col="${fromCol}"]`);
-                    if (slot && !state.me.field[r][fromCol]) {
-                        // Check if position is valid for card type
-                        const toBack = fromCol === 1;
-                        if (toBack && !fly && !shooter) continue;
-                        if (fromCol === 0 && shooter && !fly) continue;
-                        slot.classList.add('moveable');
-                    }
-                }
-            }
-            
-            // Horizontal movement (only fly)
-            if (fly) {
-                const otherCol = fromCol === 0 ? 1 : 0;
-                const slot = document.querySelector(`.card-slot[data-owner="me"][data-row="${fromRow}"][data-col="${otherCol}"]`);
-                if (slot && !state.me.field[fromRow][otherCol]) {
-                    slot.classList.add('moveable');
+                for (let c = 0; c < 2; c++) {
+                    if (r === fromRow && c === fromCol) continue;
+                    if (state.me.field[r][c]) continue;
+                    
+                    const rd = Math.abs(r - fromRow);
+                    const cd = Math.abs(c - fromCol);
+                    
+                    // Only adjacent movement
+                    if (!((rd === 1 && cd === 0) || (rd === 0 && cd === 1 && fly))) continue;
+                    
+                    // Check position restrictions
+                    const toBack = c === 1;
+                    if (toBack && !fly && !shooter) continue;
+                    if (c === 0 && shooter && !fly) continue;
+                    
+                    const slot = document.querySelector(`.card-slot[data-owner="me"][data-row="${r}"][data-col="${c}"]`);
+                    if (slot) slot.classList.add('moveable');
                 }
             }
         }
@@ -774,7 +803,7 @@
                 }
             }
             
-            // Click on a creature to select it for movement (if in redeploy phase)
+            // Click on a creature to select it for movement
             const card = state.me.field[row][col];
             if (card && currentPhase === 'redeploy' && !card.movedThisTurn) {
                 clickFieldCard(row, col, card);
