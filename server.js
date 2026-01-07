@@ -1,1 +1,515 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
 
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ==================== CARD DATABASE ====================
+const CardDB = {
+    creatures: [
+        { id: 'soldier', name: 'Soldat', atk: 2, hp: 3, cost: 1, abilities: [], type: 'creature', icon: '🛡️' },
+        { id: 'archer', name: 'Archer', atk: 3, hp: 2, cost: 2, abilities: ['shooter'], type: 'creature', icon: '🏹' },
+        { id: 'dragon', name: 'Dragon', atk: 4, hp: 4, cost: 4, abilities: ['fly'], type: 'creature', icon: '🐉' },
+        { id: 'knight', name: 'Chevalier', atk: 3, hp: 4, cost: 3, abilities: [], type: 'creature', icon: '⚔️' },
+        { id: 'scout', name: 'Éclaireur', atk: 2, hp: 2, cost: 1, abilities: ['haste'], type: 'creature', icon: '🏃' },
+        { id: 'phoenix', name: 'Phénix', atk: 3, hp: 3, cost: 4, abilities: ['fly', 'haste'], type: 'creature', icon: '🔥' },
+        { id: 'sniper', name: 'Sniper', atk: 4, hp: 1, cost: 2, abilities: ['shooter'], type: 'creature', icon: '🎯' },
+        { id: 'guardian', name: 'Gardien', atk: 1, hp: 6, cost: 2, abilities: [], type: 'creature', icon: '🏰' },
+        { id: 'hawk', name: 'Faucon', atk: 2, hp: 2, cost: 3, abilities: ['fly', 'shooter'], type: 'creature', icon: '🦅' },
+        { id: 'berserker', name: 'Berserker', atk: 5, hp: 2, cost: 3, abilities: ['haste'], type: 'creature', icon: '💀' },
+        { id: 'goblin', name: 'Gobelin', atk: 1, hp: 1, cost: 1, abilities: [], type: 'creature', icon: '👺' },
+        { id: 'orc', name: 'Orc', atk: 3, hp: 3, cost: 2, abilities: [], type: 'creature', icon: '👹' },
+        { id: 'wolf', name: 'Loup', atk: 2, hp: 1, cost: 1, abilities: ['haste'], type: 'creature', icon: '🐺' }
+    ],
+    spells: [
+        { id: 'fireball', name: 'Boule de feu', damage: 3, cost: 2, type: 'spell', offensive: true, icon: '🔥' },
+        { id: 'heal', name: 'Soin', heal: 3, cost: 1, type: 'spell', offensive: false, icon: '💚' },
+        { id: 'shield', name: 'Bouclier', shield: 2, cost: 1, type: 'spell', offensive: false, icon: '🛡️' },
+        { id: 'lightning', name: 'Éclair', damage: 2, cost: 1, type: 'spell', offensive: true, icon: '⚡' }
+    ],
+    traps: [
+        { id: 'spike', name: 'Piques', damage: 2, cost: 1, type: 'trap', defensive: true, icon: '📌' },
+        { id: 'poison', name: 'Poison', damage: 1, cost: 1, type: 'trap', defensive: false, icon: '☠️' },
+        { id: 'stun', name: 'Paralysie', cost: 2, type: 'trap', defensive: true, effect: 'stun', icon: '💫' },
+        { id: 'counter', name: 'Riposte', damage: 2, cost: 2, type: 'trap', defensive: false, icon: '↩️' }
+    ]
+};
+
+// ==================== GAME ROOMS ====================
+const rooms = new Map();
+const playerRooms = new Map();
+const TURN_TIME = 60;
+
+function generateRoomCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function createDeck() {
+    const deck = [];
+    for (let i = 0; i < 60; i++) {
+        const r = Math.random();
+        let pool = r < 0.65 ? CardDB.creatures : r < 0.85 ? CardDB.spells : CardDB.traps;
+        const card = { ...pool[Math.floor(Math.random() * pool.length)], uid: `${Date.now()}-${Math.random()}-${i}` };
+        if (card.type === 'creature') {
+            card.currentHp = card.hp;
+            card.canAttack = false;
+            card.turnsOnField = 0;
+            card.movedThisTurn = false;
+        }
+        deck.push(card);
+    }
+    return deck.sort(() => Math.random() - 0.5);
+}
+
+function createPlayerState() {
+    const deck = createDeck();
+    const hand = deck.splice(0, 7);
+    return {
+        hp: 20,
+        energy: 1,
+        maxEnergy: 1,
+        deck,
+        hand,
+        field: Array(4).fill(null).map(() => Array(2).fill(null)),
+        traps: [null, null, null, null],
+        actions: { movements: [], placements: [], spells: [], traps: [] },
+        ready: false,
+        connected: false
+    };
+}
+
+function createGameState() {
+    return {
+        turn: 1,
+        phase: 'planning',
+        timeLeft: TURN_TIME,
+        players: { 1: createPlayerState(), 2: createPlayerState() },
+        resolutionLog: []
+    };
+}
+
+function getPublicGameState(room, forPlayer) {
+    const state = room.gameState;
+    const opponent = forPlayer === 1 ? 2 : 1;
+    return {
+        turn: state.turn,
+        phase: state.phase,
+        timeLeft: state.timeLeft,
+        myPlayer: forPlayer,
+        me: {
+            hp: state.players[forPlayer].hp,
+            energy: state.players[forPlayer].energy,
+            maxEnergy: state.players[forPlayer].maxEnergy,
+            hand: state.players[forPlayer].hand,
+            deckCount: state.players[forPlayer].deck.length,
+            field: state.players[forPlayer].field,
+            traps: state.players[forPlayer].traps,
+            ready: state.players[forPlayer].ready
+        },
+        opponent: {
+            hp: state.players[opponent].hp,
+            energy: state.players[opponent].energy,
+            maxEnergy: state.players[opponent].maxEnergy,
+            handCount: state.players[opponent].hand.length,
+            deckCount: state.players[opponent].deck.length,
+            field: state.players[opponent].field,
+            trapsCount: state.players[opponent].traps.filter(t => t !== null).length,
+            ready: state.players[opponent].ready
+        },
+        resolutionLog: state.resolutionLog
+    };
+}
+
+function startTurnTimer(room) {
+    if (room.timer) clearInterval(room.timer);
+    room.gameState.timeLeft = TURN_TIME;
+    room.gameState.phase = 'planning';
+    
+    room.timer = setInterval(() => {
+        room.gameState.timeLeft--;
+        io.to(room.code).emit('timerUpdate', room.gameState.timeLeft);
+        if (room.gameState.timeLeft <= 0) {
+            room.gameState.players[1].ready = true;
+            room.gameState.players[2].ready = true;
+            startResolution(room);
+        }
+    }, 1000);
+}
+
+function checkBothReady(room) {
+    if (room.gameState.players[1].ready && room.gameState.players[2].ready) {
+        startResolution(room);
+    }
+}
+
+async function startResolution(room) {
+    if (room.timer) clearInterval(room.timer);
+    room.gameState.phase = 'resolution';
+    room.gameState.resolutionLog = [];
+    
+    io.to(room.code).emit('phaseChange', 'resolution');
+    
+    const log = (msg, type) => {
+        room.gameState.resolutionLog.push({ msg, type });
+        io.to(room.code).emit('resolutionLog', { msg, type });
+    };
+    
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const emitState = () => {
+        const p1State = getPublicGameState(room, 1);
+        const p2State = getPublicGameState(room, 2);
+        if (room.players[1]) io.to(room.players[1]).emit('gameStateUpdate', p1State);
+        if (room.players[2]) io.to(room.players[2]).emit('gameStateUpdate', p2State);
+    };
+    
+    // Pioche
+    for (let p = 1; p <= 2; p++) {
+        const player = room.gameState.players[p];
+        if (player.deck.length > 0) {
+            const card = player.deck.pop();
+            if (card.type === 'creature') {
+                card.currentHp = card.hp;
+                card.canAttack = false;
+                card.turnsOnField = 0;
+            }
+            player.hand.push(card);
+        }
+    }
+    log('📦 Les joueurs piochent', 'action');
+    emitState();
+    await sleep(500);
+    
+    // Mouvements
+    for (let p = 1; p <= 2; p++) {
+        for (const m of room.gameState.players[p].actions.movements) {
+            log(`J${p}: ${m.card.name} se déplace`, 'action');
+        }
+    }
+    await sleep(300);
+    
+    // Placements
+    for (let p = 1; p <= 2; p++) {
+        for (const pl of room.gameState.players[p].actions.placements) {
+            log(`J${p}: ${pl.card.name} entre en jeu`, 'action');
+        }
+    }
+    emitState();
+    await sleep(300);
+    
+    // Pièges
+    for (let p = 1; p <= 2; p++) {
+        for (const t of room.gameState.players[p].actions.traps) {
+            log(`J${p}: Piège posé`, 'trap');
+        }
+    }
+    await sleep(300);
+    
+    // Sorts défensifs
+    for (let p = 1; p <= 2; p++) {
+        for (const action of room.gameState.players[p].actions.spells.filter(s => !s.spell.offensive)) {
+            const target = room.gameState.players[action.targetPlayer].field[action.row][action.col];
+            if (target && action.spell.heal) {
+                target.currentHp = Math.min(target.hp, target.currentHp + action.spell.heal);
+                log(`💚 ${target.name} +${action.spell.heal}`, 'heal');
+                io.to(room.code).emit('spellEffect', { type: 'heal', player: action.targetPlayer, row: action.row, col: action.col });
+            }
+            await sleep(400);
+        }
+    }
+    
+    // Sorts offensifs
+    for (let p = 1; p <= 2; p++) {
+        for (const action of room.gameState.players[p].actions.spells.filter(s => s.spell.offensive)) {
+            const target = room.gameState.players[action.targetPlayer].field[action.row][action.col];
+            if (target && action.spell.damage) {
+                target.currentHp -= action.spell.damage;
+                log(`💥 ${target.name} -${action.spell.damage}`, 'damage');
+                io.to(room.code).emit('spellEffect', { type: 'damage', player: action.targetPlayer, row: action.row, col: action.col, amount: action.spell.damage });
+                if (target.currentHp <= 0) {
+                    await sleep(300);
+                    room.gameState.players[action.targetPlayer].field[action.row][action.col] = null;
+                    log(`☠️ ${target.name} détruit`, 'damage');
+                    io.to(room.code).emit('cardDeath', { player: action.targetPlayer, row: action.row, col: action.col });
+                }
+            }
+            await sleep(400);
+        }
+    }
+    emitState();
+    
+    // Combat
+    log('💥 Combat', 'phase');
+    await sleep(300);
+    
+    for (let row = 0; row < 4; row++) {
+        for (let col = 1; col >= 0; col--) {
+            await processCombat(room, 1, row, col, log, emitState);
+            await processCombat(room, 2, row, col, log, emitState);
+        }
+    }
+    
+    // Activer cartes
+    for (let p = 1; p <= 2; p++) {
+        for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 2; col++) {
+                const card = room.gameState.players[p].field[row][col];
+                if (card) {
+                    card.turnsOnField++;
+                    card.canAttack = true;
+                    card.movedThisTurn = false;
+                }
+            }
+        }
+    }
+    
+    // Victoire ?
+    if (room.gameState.players[1].hp <= 0 || room.gameState.players[2].hp <= 0) {
+        const winner = room.gameState.players[1].hp <= 0 ? 2 : 1;
+        log(`🏆 JOUEUR ${winner} GAGNE!`, 'phase');
+        io.to(room.code).emit('gameOver', { winner });
+        return;
+    }
+    
+    await sleep(500);
+    startNewTurn(room);
+}
+
+async function processCombat(room, ap, row, col, log, emitState) {
+    const attacker = room.gameState.players[ap].field[row][col];
+    if (!attacker || !attacker.canAttack) return;
+    
+    const dp = ap === 1 ? 2 : 1;
+    const df = room.gameState.players[dp].field[row][0];
+    const db = room.gameState.players[dp].field[row][1];
+    
+    const fly = attacker.abilities.includes('fly');
+    const shooter = attacker.abilities.includes('shooter');
+    const back = col === 1;
+    
+    let blocker = null, bc = -1;
+    if (df && (!fly || df.abilities.includes('fly') || df.abilities.includes('shooter'))) { blocker = df; bc = 0; }
+    if (!blocker && db && (!fly || db.abilities.includes('fly') || db.abilities.includes('shooter'))) { blocker = db; bc = 1; }
+    
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    
+    if (!blocker) {
+        room.gameState.players[dp].hp -= attacker.atk;
+        log(`⚔️ ${attacker.name} → J${dp} -${attacker.atk}`, 'damage');
+        io.to(room.code).emit('directDamage', { attacker: ap, defender: dp, damage: attacker.atk, row, col });
+        emitState();
+        await sleep(500);
+        return;
+    }
+    
+    io.to(room.code).emit('combat', { attacker: { player: ap, row, col }, defender: { player: dp, row, col: bc } });
+    
+    blocker.currentHp -= attacker.atk;
+    log(`⚔️ ${attacker.name} → ${blocker.name} -${attacker.atk}`, 'damage');
+    
+    const bAtk = blocker.canAttack;
+    const bShooter = blocker.abilities.includes('shooter');
+    const bBack = bc === 1;
+    let riposte = bAtk && !(back && shooter && !bBack && !bShooter);
+    
+    if (riposte) {
+        attacker.currentHp -= blocker.atk;
+        log(`↩️ ${blocker.name} -${blocker.atk}`, 'damage');
+    }
+    
+    await sleep(400);
+    
+    if (blocker.currentHp <= 0) {
+        room.gameState.players[dp].field[row][bc] = null;
+        log(`☠️ ${blocker.name}`, 'damage');
+        io.to(room.code).emit('cardDeath', { player: dp, row, col: bc });
+    }
+    if (attacker.currentHp <= 0) {
+        room.gameState.players[ap].field[row][col] = null;
+        log(`☠️ ${attacker.name}`, 'damage');
+        io.to(room.code).emit('cardDeath', { player: ap, row, col });
+    }
+    emitState();
+    await sleep(300);
+}
+
+function startNewTurn(room) {
+    room.gameState.turn++;
+    for (let p = 1; p <= 2; p++) {
+        const player = room.gameState.players[p];
+        player.maxEnergy = Math.min(10, player.maxEnergy + 1);
+        player.energy = player.maxEnergy;
+        player.ready = false;
+        player.actions = { movements: [], placements: [], spells: [], traps: [] };
+    }
+    room.gameState.resolutionLog = [];
+    
+    io.to(room.code).emit('newTurn', { turn: room.gameState.turn, maxEnergy: room.gameState.players[1].maxEnergy });
+    
+    const p1State = getPublicGameState(room, 1);
+    const p2State = getPublicGameState(room, 2);
+    if (room.players[1]) io.to(room.players[1]).emit('gameStateUpdate', p1State);
+    if (room.players[2]) io.to(room.players[2]).emit('gameStateUpdate', p2State);
+    
+    startTurnTimer(room);
+}
+
+// ==================== SOCKET HANDLERS ====================
+io.on('connection', (socket) => {
+    console.log('Connected:', socket.id);
+    
+    socket.on('createRoom', (callback) => {
+        const code = generateRoomCode();
+        const room = { code, players: { 1: socket.id, 2: null }, gameState: createGameState(), timer: null };
+        room.gameState.players[1].connected = true;
+        rooms.set(code, room);
+        playerRooms.set(socket.id, { code, playerNum: 1 });
+        socket.join(code);
+        callback({ success: true, code, playerNum: 1 });
+        console.log(`Room ${code} created`);
+    });
+    
+    socket.on('joinRoom', (code, callback) => {
+        const room = rooms.get(code.toUpperCase());
+        if (!room) { callback({ success: false, error: 'Partie introuvable' }); return; }
+        if (room.players[2]) { callback({ success: false, error: 'Partie complète' }); return; }
+        
+        room.players[2] = socket.id;
+        room.gameState.players[2].connected = true;
+        playerRooms.set(socket.id, { code: room.code, playerNum: 2 });
+        socket.join(room.code);
+        callback({ success: true, code: room.code, playerNum: 2 });
+        
+        io.to(room.players[1]).emit('gameStart', getPublicGameState(room, 1));
+        io.to(room.players[2]).emit('gameStart', getPublicGameState(room, 2));
+        startTurnTimer(room);
+        console.log(`Room ${room.code} - game started`);
+    });
+    
+    socket.on('placeCard', (data) => {
+        const info = playerRooms.get(socket.id);
+        if (!info) return;
+        const room = rooms.get(info.code);
+        if (!room || room.gameState.phase !== 'planning') return;
+        
+        const player = room.gameState.players[info.playerNum];
+        const { handIndex, row, col } = data;
+        const card = player.hand[handIndex];
+        if (!card || card.cost > player.energy) return;
+        
+        const back = col === 1, front = col === 0;
+        const shooter = card.abilities?.includes('shooter'), fly = card.abilities?.includes('fly');
+        if (back && !fly && !shooter) return;
+        if (front && shooter && !fly) return;
+        if (player.field[row][col]) return;
+        
+        player.energy -= card.cost;
+        const placed = { ...card, turnsOnField: 0, canAttack: card.abilities?.includes('haste'), currentHp: card.hp, movedThisTurn: false };
+        player.field[row][col] = placed;
+        player.hand.splice(handIndex, 1);
+        player.actions.placements.push({ card: placed, row, col });
+        
+        socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+    });
+    
+    socket.on('moveCard', (data) => {
+        const info = playerRooms.get(socket.id);
+        if (!info) return;
+        const room = rooms.get(info.code);
+        if (!room || room.gameState.phase !== 'planning') return;
+        
+        const player = room.gameState.players[info.playerNum];
+        const { fromRow, fromCol, toRow, toCol } = data;
+        const card = player.field[fromRow][fromCol];
+        if (!card || card.movedThisTurn || player.field[toRow][toCol]) return;
+        
+        const rd = Math.abs(toRow - fromRow), cd = Math.abs(toCol - fromCol);
+        const vert = rd === 1 && cd === 0, horiz = rd === 0 && cd === 1;
+        if (!vert && !(horiz && card.abilities?.includes('fly'))) return;
+        
+        const back = toCol === 1, shooter = card.abilities?.includes('shooter'), fly = card.abilities?.includes('fly');
+        if (back && !fly && !shooter) return;
+        if (toCol === 0 && shooter && !fly) return;
+        
+        card.movedThisTurn = true;
+        player.field[toRow][toCol] = card;
+        player.field[fromRow][fromCol] = null;
+        player.actions.movements.push({ card, from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } });
+        
+        socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+    });
+    
+    socket.on('castSpell', (data) => {
+        const info = playerRooms.get(socket.id);
+        if (!info) return;
+        const room = rooms.get(info.code);
+        if (!room || room.gameState.phase !== 'planning') return;
+        
+        const player = room.gameState.players[info.playerNum];
+        const { handIndex, targetPlayer, row, col } = data;
+        const spell = player.hand[handIndex];
+        if (!spell || spell.type !== 'spell' || spell.cost > player.energy) return;
+        
+        player.energy -= spell.cost;
+        player.actions.spells.push({ spell, targetPlayer, row, col });
+        player.hand.splice(handIndex, 1);
+        
+        socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+    });
+    
+    socket.on('placeTrap', (data) => {
+        const info = playerRooms.get(socket.id);
+        if (!info) return;
+        const room = rooms.get(info.code);
+        if (!room || room.gameState.phase !== 'planning') return;
+        
+        const player = room.gameState.players[info.playerNum];
+        const { handIndex, trapIndex } = data;
+        const trap = player.hand[handIndex];
+        if (!trap || trap.type !== 'trap' || trap.cost > player.energy || player.traps[trapIndex]) return;
+        
+        player.energy -= trap.cost;
+        player.traps[trapIndex] = trap;
+        player.hand.splice(handIndex, 1);
+        player.actions.traps.push({ card: trap, index: trapIndex });
+        
+        socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+    });
+    
+    socket.on('ready', () => {
+        const info = playerRooms.get(socket.id);
+        if (!info) return;
+        const room = rooms.get(info.code);
+        if (!room || room.gameState.phase !== 'planning') return;
+        
+        room.gameState.players[info.playerNum].ready = true;
+        io.to(room.code).emit('playerReady', info.playerNum);
+        checkBothReady(room);
+    });
+    
+    socket.on('disconnect', () => {
+        const info = playerRooms.get(socket.id);
+        if (info) {
+            const room = rooms.get(info.code);
+            if (room) {
+                room.gameState.players[info.playerNum].connected = false;
+                io.to(room.code).emit('playerDisconnected', info.playerNum);
+                setTimeout(() => {
+                    if (room && !room.gameState.players[info.playerNum].connected) {
+                        if (room.timer) clearInterval(room.timer);
+                        rooms.delete(info.code);
+                    }
+                }, 60000);
+            }
+            playerRooms.delete(socket.id);
+        }
+        console.log('Disconnected:', socket.id);
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`🎮 Server running on http://localhost:${PORT}`));
