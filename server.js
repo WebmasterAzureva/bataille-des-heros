@@ -467,21 +467,23 @@ async function applySpell(room, action, log, sleep) {
     await sleep(600);
     
     if (spell.pattern === 'cross') {
-        const targets = getCrossTargets(action.targetPlayer, action.row, action.col);
-        log(`  ✝️ ${action.heroName}: ${spell.name} en croix depuis ${slotNames[action.row][action.col]}!`, 'damage');
+        // Le sort croix touche le CENTRE + les 4 cases adjacentes
+        const adjacentTargets = getCrossTargets(action.targetPlayer, action.row, action.col);
         
-        for (const t of targets) {
+        // Ajouter le centre comme première cible
+        const allTargets = [
+            { row: action.row, col: action.col, player: action.targetPlayer },
+            ...adjacentTargets
+        ];
+        
+        log(`  ✝️ ${action.heroName}: ${spell.name} en croix sur ${slotNames[action.row][action.col]}!`, 'damage');
+        
+        // Appliquer les dégâts à toutes les cibles (centre + adjacents)
+        for (const t of allTargets) {
             const targetField = t.player === playerNum ? player.field : opponent.field;
             const target = targetField[t.row][t.col];
             
-            emitAnimation(room, 'spell', { 
-                caster: playerNum, 
-                targetPlayer: t.player, 
-                row: t.row, 
-                col: t.col, 
-                spell: spell 
-            });
-            
+            // Animation de dégâts seulement (pas de spell pour chaque case)
             if (target) {
                 target.currentHp -= spell.damage;
                 log(`    🔥 ${target.name} (-${spell.damage})`, 'damage');
@@ -495,8 +497,8 @@ async function applySpell(room, action, log, sleep) {
                     emitAnimation(room, 'death', { player: t.player, row: t.row, col: t.col });
                 }
             }
-            await sleep(400);
         }
+        await sleep(400);
     } else {
         const targetField = action.targetPlayer === playerNum ? player.field : opponent.field;
         const target = targetField[action.row][action.col];
