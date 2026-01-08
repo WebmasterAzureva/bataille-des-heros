@@ -148,11 +148,14 @@
         .card.dying { animation: deathAnim 0.6s ease-out forwards; }
         @keyframes deathAnim { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0) rotate(180deg); opacity: 0; } }
         
-        .card.summoning { animation: summonFall 0.6s ease-out forwards; }
-        @keyframes summonFall { 
-            0% { transform: translateY(-200px) scale(0.8); opacity: 0; } 
-            60% { transform: translateY(10px) scale(1.05); opacity: 1; }
-            100% { transform: translateY(0) scale(1); opacity: 1; } 
+        /* Animation de pop pour invocation (overlay fixe) */
+        .card.summon-overlay { 
+            animation: summonPop 0.5s ease-out forwards; 
+        }
+        @keyframes summonPop { 
+            0% { transform: scale(0); opacity: 0; } 
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; } 
         }
         
         .card.healing { animation: healAnim 0.5s ease-out; }
@@ -163,8 +166,11 @@
             position: fixed;
             z-index: 3000;
             pointer-events: none;
-            transition: transform 0.5s ease-in-out, left 0.5s ease-in-out, top 0.5s ease-in-out;
+            transition: left 0.5s ease-in-out, top 0.5s ease-in-out;
         }
+        
+        /* Cacher la carte dans un slot en attente de move */
+        .card-slot.awaiting-move > .card { opacity: 0; }
         
         /* Carte affichée lors des sorts/pièges */
         .card-showcase { 
@@ -197,9 +203,6 @@
         .card.returning { 
             transition: transform 0.3s ease-out, left 0.3s ease-out, top 0.3s ease-out;
         }
-        
-        /* Carte en attente d'apparition (invisible) */
-        .card-slot.awaiting-summon > .card { display: none; }
         
         .attack-projectile { position: fixed; z-index: 1000; font-size: 2em; pointer-events: none; transition: all 0.3s ease-out; }
         
@@ -675,9 +678,7 @@
             }
         }
         
-        // Slots en attente d'animation (la carte du state sera cachée pendant l'animation)
-        let awaitingSummon = new Set();
-        
+        // Animation d'invocation - overlay indépendant du render
         function animateSummon(data) {
             // N'animer que les créatures de l'adversaire (pas les nôtres)
             if (data.animateForOpponent && data.player === myNum) {
@@ -685,37 +686,29 @@
             }
             
             const owner = data.player === myNum ? 'me' : 'opp';
-            const slotKey = `${owner}-${data.row}-${data.col}`;
             
-            // Marquer le slot comme en attente d'animation
-            awaitingSummon.add(slotKey);
-            
-            // Trouver le slot cible
+            // Trouver le slot cible pour sa position
             const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
             if (!slot) return;
             
-            // Marquer le slot pour cacher la carte du render
-            slot.classList.add('awaiting-summon');
+            const rect = slot.getBoundingClientRect();
             
-            // Créer une carte d'animation qui tombe depuis le haut
+            // Créer une carte overlay en position fixe (indépendante du DOM du slot)
             const cardEl = makeCard(data.card, false);
-            cardEl.classList.add('summoning');
-            cardEl.style.position = 'absolute';
-            cardEl.style.width = '100%';
-            cardEl.style.height = '100%';
-            cardEl.style.top = '0';
-            cardEl.style.left = '0';
-            cardEl.style.zIndex = '10';
+            cardEl.style.position = 'fixed';
+            cardEl.style.left = rect.left + 'px';
+            cardEl.style.top = rect.top + 'px';
+            cardEl.style.width = rect.width + 'px';
+            cardEl.style.height = rect.height + 'px';
+            cardEl.style.zIndex = '2000';
+            cardEl.style.pointerEvents = 'none';
+            cardEl.classList.add('summon-overlay');
             
-            slot.appendChild(cardEl);
+            document.body.appendChild(cardEl);
             
-            // Après l'animation, nettoyer
+            // Supprimer après l'animation
             setTimeout(() => {
-                awaitingSummon.delete(slotKey);
-                slot.classList.remove('awaiting-summon');
                 cardEl.remove();
-                // Forcer un re-render pour afficher la vraie carte
-                if (state) render();
             }, 600);
         }
         
@@ -736,7 +729,7 @@
             // Marquer le slot de destination comme en attente
             const toKey = `${owner}-${data.toRow}-${data.toCol}`;
             awaitingMove.add(toKey);
-            toSlot.classList.add('awaiting-summon'); // Réutilise le même style pour cacher
+            toSlot.classList.add('awaiting-move');
             
             // Récupérer les positions
             const fromRect = fromSlot.getBoundingClientRect();
@@ -762,7 +755,7 @@
             setTimeout(() => {
                 movingCard.remove();
                 awaitingMove.delete(toKey);
-                toSlot.classList.remove('awaiting-summon');
+                toSlot.classList.remove('awaiting-move');
                 if (state) render();
             }, 550);
         }
@@ -1116,9 +1109,6 @@
                 for (let c = 0; c < 2; c++) {
                     const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${r}"][data-col="${c}"]`);
                     if (!slot) continue;
-                    
-                    // Si le slot est en attente d'animation summon, ne pas toucher
-                    if (slot.classList.contains('awaiting-summon')) continue;
                     
                     const label = slot.querySelector('.slot-label');
                     slot.innerHTML = '';
