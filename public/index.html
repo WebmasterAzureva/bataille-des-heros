@@ -17,7 +17,6 @@
             overflow: hidden;
         }
         
-        /* LOBBY */
         .lobby { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
         .lobby.hidden { display: none; }
         .lobby-title { font-size: 3em; color: #ffd700; text-shadow: 0 0 30px rgba(255,215,0,0.5); margin-bottom: 30px; }
@@ -31,11 +30,9 @@
         .waiting-text { color: #aaa; animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         
-        /* GAME */
         .game-container { width: 100vw; height: 100vh; display: none; position: relative; }
         .game-container.active { display: block; }
         
-        /* TOP BAR */
         .top-bar { position: absolute; top: 0; left: 0; right: 0; height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; background: rgba(20,20,40,0.95); border-bottom: 2px solid #5a4a3a; z-index: 50; }
         .player-info-bar { display: flex; align-items: center; gap: 12px; }
         .rank-badge { background: #5a5a7a; padding: 4px 12px; border-radius: 4px; font-size: 0.75em; }
@@ -44,37 +41,31 @@
         .player-name.opp { background: linear-gradient(135deg, #6a2a4a, #5a1a3a); border: 2px solid #9a4a7c; }
         .options-btn { width: 35px; height: 35px; border-radius: 50%; background: #5a4a3a; border: 2px solid #8b7355; cursor: pointer; font-size: 1em; }
         
-        /* ENERGY DISPLAY */
         .energy-display { display: flex; align-items: center; gap: 8px; }
         .mana-orb { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #7ec8f3, #1e90ff, #0066cc); border: 3px solid #87ceeb; box-shadow: 0 0 15px rgba(30,144,255,0.6); display: flex; align-items: center; justify-content: center; font-size: 1.1em; font-weight: bold; }
         .energy-text { font-size: 1.2em; color: #87ceeb; font-weight: bold; }
         
-        /* END TURN BUTTON - ROUND */
         .end-turn-btn { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ff6b35, #c41e00); border: 4px solid #ffd700; cursor: pointer; font-size: 0.7em; font-weight: bold; color: white; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
         .end-turn-btn:hover { transform: translateX(-50%) scale(1.08); box-shadow: 0 6px 25px rgba(255,107,53,0.5); }
         .end-turn-btn:disabled { background: radial-gradient(circle at 30% 30%, #555, #333); border-color: #666; cursor: not-allowed; }
         .end-turn-btn.waiting { background: radial-gradient(circle at 30% 30%, #666, #444); }
         
-        /* TIMER - Below button, hidden until 15s */
         .timer-container { position: absolute; top: 160px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; z-index: 99; }
         .timer-container.visible { display: flex; }
         .timer-container.urgent { animation: urgentPulse 0.5s infinite; }
         .timer-text { font-size: 2.5em; font-weight: bold; color: #e74c3c; text-shadow: 0 0 20px rgba(231,76,60,0.8); }
         @keyframes urgentPulse { 0%, 100% { transform: scale(1); text-shadow: 0 0 20px rgba(231,76,60,0.8); } 50% { transform: scale(1.1); text-shadow: 0 0 40px rgba(231,76,60,1); } }
         
-        /* PHASE INDICATOR */
         .phase-indicator { position: absolute; top: 165px; left: 50%; transform: translateX(-50%); padding: 8px 25px; background: rgba(46,204,113,0.9); border-radius: 20px; border: 2px solid #58d68d; font-size: 0.8em; z-index: 90; white-space: nowrap; }
         .phase-indicator.with-timer { top: 210px; }
         .phase-indicator.redeploy { background: rgba(52,152,219,0.9); border-color: #5dade2; }
         .phase-indicator.deploy { background: rgba(46,204,113,0.9); border-color: #58d68d; }
         .phase-indicator.resolution { background: rgba(231,76,60,0.9); border-color: #ec7063; }
         
-        /* SIDE PANELS */
         .side-panel { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .side-panel.left { left: 15px; }
         .side-panel.right { right: 15px; }
         
-        /* HERO - BIGGEST CARD */
         .hero-card { width: 110px; height: 150px; border-radius: 10px; background: linear-gradient(135deg, #3a3a5a, #2a2a4a); border: 4px solid #5a5a8a; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
         .side-panel.left .hero-card { border-color: #4a9a4a; background: linear-gradient(135deg, #2a4a3a, #1a3a2a); }
         .side-panel.right .hero-card { border-color: #9a4a4a; background: linear-gradient(135deg, #4a2a3a, #3a1a2a); }
@@ -84,7 +75,6 @@
         .ready-dot { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%; background: #7f8c8d; border: 3px solid white; font-size: 0.5em; display: flex; align-items: center; justify-content: center; }
         .ready-dot.ready { background: #27ae60; }
         
-        /* DECK & GRAVEYARD - SAME SIZE AS BATTLEFIELD CARDS */
         .deck-grave-row { display: flex; gap: 8px; margin-top: 15px; }
         .deck-box, .grave-box { width: 90px; height: 120px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7em; }
         .deck-box { background: linear-gradient(135deg, #4a3a2a, #2a2015); border: 3px solid #8b7355; }
@@ -92,7 +82,6 @@
         .deck-icon { font-size: 2em; margin-bottom: 5px; }
         .deck-count { font-size: 1.2em; font-weight: bold; }
         
-        /* BATTLEFIELD */
         .battlefield { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 10px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border: 2px solid rgba(139,115,85,0.3); }
         
         .field-side { display: grid; grid-template-columns: repeat(2, 90px); grid-template-rows: repeat(4, 120px); gap: 5px; }
@@ -100,7 +89,6 @@
         .trap-center { display: flex; gap: 6px; }
         .trap-col { display: grid; grid-template-rows: repeat(4, 120px); gap: 5px; }
         
-        /* CARD SLOT */
         .card-slot { width: 90px; height: 120px; border: 2px dashed rgba(139,155,200,0.4); border-radius: 6px; background: rgba(139,155,200,0.08); cursor: pointer; transition: all 0.2s; position: relative; display: flex; align-items: center; justify-content: center; }
         .card-slot .slot-label { position: absolute; font-size: 0.65em; color: rgba(255,255,255,0.25); pointer-events: none; }
         .card-slot:hover { border-color: rgba(255,215,0,0.5); background: rgba(255,215,0,0.1); }
@@ -109,19 +97,15 @@
         .card-slot.has-card { border-color: transparent; background: transparent; }
         .card-slot.valid-target { border-color: #2ecc71 !important; background: rgba(46,204,113,0.25) !important; box-shadow: 0 0 15px rgba(46,204,113,0.5); animation: validPulse 1s infinite; }
         .card-slot.drag-over { border-color: #f1c40f !important; background: rgba(241,196,15,0.35) !important; box-shadow: 0 0 25px rgba(241,196,15,0.8); }
-        .card-slot.targetable { border-color: #e74c3c !important; animation: glow 1s infinite; }
         .card-slot.moveable { border-color: #3498db !important; background: rgba(52,152,219,0.25) !important; box-shadow: 0 0 15px rgba(52,152,219,0.5); }
         @keyframes validPulse { 0%,100% { box-shadow: 0 0 10px rgba(46,204,113,0.4); } 50% { box-shadow: 0 0 25px rgba(46,204,113,0.8); } }
-        @keyframes glow { 0%,100% { box-shadow: 0 0 5px #e74c3c; } 50% { box-shadow: 0 0 20px #e74c3c; } }
         
-        /* TRAP SLOT */
         .trap-slot { width: 45px; height: 45px; margin: auto 0; border: 2px dashed rgba(200,150,200,0.4); border-radius: 50%; background: rgba(200,150,200,0.1); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 0.55em; color: rgba(255,255,255,0.4); }
         .trap-slot:hover { border-color: #ffd700; background: rgba(255,215,0,0.2); }
         .trap-slot.has-trap { border-style: solid; background: rgba(231,76,60,0.3); border-color: #e74c3c; font-size: 1.3em; color: white; }
         .trap-slot.valid-target { border-color: #2ecc71 !important; background: rgba(46,204,113,0.3) !important; }
         .trap-slot.drag-over { border-color: #f1c40f !important; background: rgba(241,196,15,0.4) !important; }
         
-        /* CARDS - SAME SIZE FOR ALL */
         .card { width: 86px; height: 116px; border-radius: 6px; position: relative; cursor: grab; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; background: #111; flex-shrink: 0; }
         .card.dragging { opacity: 0.4; cursor: grabbing; }
         .card-cost { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; background: radial-gradient(circle at 30% 30%, #4fc3f7, #0277bd); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85em; font-weight: bold; border: 2px solid #81d4fa; z-index: 5; }
@@ -146,7 +130,6 @@
         .card.field-selected { box-shadow: 0 0 15px rgba(52,152,219,0.9); border-color: #3498db !important; }
         .card.unplayable { opacity: 0.3 !important; filter: grayscale(80%); cursor: not-allowed !important; }
         
-        /* MY HAND */
         .my-hand { position: absolute; bottom: 8px; left: 140px; display: flex; padding: 10px 15px; background: rgba(20,20,40,0.95); border-radius: 10px 10px 0 0; border: 2px solid #5a4a3a; border-bottom: none; max-width: calc(45% - 150px); }
         .my-hand .card { margin-left: -45px; transition: transform 0.2s, margin 0.2s; }
         .my-hand .card:first-child { margin-left: 0; }
@@ -155,12 +138,10 @@
         .my-hand .card.selected { transform: translateY(-45px) scale(1.1); z-index: 101; box-shadow: 0 0 25px rgba(255,215,0,0.8); margin-left: 0; margin-right: 10px; }
         .my-hand .card.selected + .card { margin-left: 0; }
         
-        /* OPPONENT HAND */
         .opp-hand { position: absolute; bottom: 8px; right: 140px; display: flex; padding: 8px 12px; background: rgba(20,20,40,0.95); border-radius: 10px 10px 0 0; border: 2px solid #5a4a3a; border-bottom: none; }
         .opp-card-back { width: 35px; height: 50px; margin-left: -25px; border-radius: 4px; background: linear-gradient(135deg, #4a3a2a, #2a2015); border: 2px solid #8b7355; display: flex; align-items: center; justify-content: center; font-size: 0.9em; }
         .opp-card-back:first-child { margin-left: 0; }
         
-        /* LOG */
         .log-btn { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); padding: 8px 20px; background: rgba(60,50,40,0.9); border: 2px solid #8b7355; border-radius: 20px; cursor: pointer; font-size: 0.75em; }
         .log-popup { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); width: 400px; max-height: 280px; background: rgba(20,20,40,0.98); border: 2px solid #8b7355; border-radius: 12px; padding: 12px; display: none; z-index: 100; }
         .log-popup.active { display: block; }
@@ -173,7 +154,6 @@
         .log-heal { background: rgba(46,204,113,0.2); color: #58d68d; }
         .log-trap { background: rgba(155,89,182,0.2); color: #bb8fce; }
         
-        /* GAME OVER */
         .game-over { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .game-over.hidden { display: none; }
         .game-over-box { text-align: center; padding: 40px; background: rgba(30,30,50,0.98); border-radius: 15px; border: 4px solid #ffd700; }
@@ -234,7 +214,6 @@
         
         <div class="phase-indicator deploy" id="phase-indicator">🔄 Phase de Redéploiement</div>
         
-        <!-- Left Panel - Me -->
         <div class="side-panel left">
             <div class="hero-card">
                 <div class="ready-dot" id="me-ready"></div>
@@ -256,7 +235,6 @@
             </div>
         </div>
         
-        <!-- Right Panel - Opponent -->
         <div class="side-panel right">
             <div class="hero-card">
                 <div class="ready-dot" id="opp-ready"></div>
@@ -301,8 +279,6 @@
     <script>
         let socket, myNum = 0, state = null;
         let selected = null, dragged = null;
-        let isMyTurnReady = false;
-        let inDeployPhase = false;
         let currentTimer = 90;
         
         const SLOT_NAMES = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
@@ -311,10 +287,9 @@
             socket = io();
             
             socket.on('gameStart', (s) => {
+                console.log('Game started', s);
                 state = s;
                 myNum = s.myPlayer;
-                isMyTurnReady = false;
-                inDeployPhase = false;
                 setupHeroes();
                 document.getElementById('lobby').classList.add('hidden');
                 document.getElementById('game-container').classList.add('active');
@@ -324,10 +299,9 @@
                 log('🎮 Tour 1 - Partie lancée !', 'phase');
             });
             
-            socket.on('gameStateUpdate', (s) => { 
+            socket.on('gameStateUpdate', (s) => {
+                console.log('State update', s);
                 state = s;
-                isMyTurnReady = state.me.ready;
-                inDeployPhase = state.me.inDeployPhase;
                 render();
                 updatePhaseDisplay();
             });
@@ -338,27 +312,28 @@
                 updateTimerDisplay(t);
             });
             
-            socket.on('phaseChange', (p) => { 
+            socket.on('phaseChange', (p) => {
+                console.log('Phase change:', p);
                 if(state) state.phase = p; 
                 updatePhaseDisplay();
             });
             
-            socket.on('playerReady', (n) => { 
+            socket.on('playerReady', (n) => {
+                console.log('Player ready:', n);
                 const isMe = n === myNum;
                 document.getElementById(isMe ? 'me-ready' : 'opp-ready').classList.add('ready');
                 document.getElementById(isMe ? 'me-ready' : 'opp-ready').textContent = '✓';
                 if (isMe) {
-                    isMyTurnReady = true;
                     updateButtonState();
                 }
                 log(isMe ? 'Vous êtes prêt' : 'Adversaire prêt', 'action');
             });
             
             socket.on('newTurn', (d) => {
-                isMyTurnReady = false;
-                inDeployPhase = false;
+                console.log('New turn:', d);
                 currentTimer = 90;
                 
+                // Reset UI for new turn
                 document.getElementById('me-ready').classList.remove('ready');
                 document.getElementById('opp-ready').classList.remove('ready');
                 document.getElementById('me-ready').textContent = '';
@@ -368,8 +343,8 @@
                 btn.classList.remove('waiting');
                 btn.disabled = false;
                 
+                clearSel();
                 updateTimerDisplay(90);
-                updatePhaseDisplay();
                 log(`🎮 Tour ${d.turn} — ⚡${d.maxEnergy} énergie`, 'phase');
             });
             
@@ -391,12 +366,19 @@
             socket.on('playerDisconnected', () => log('⚠️ Adversaire déconnecté', 'damage'));
         }
         
+        function canPlay() {
+            if (!state) return false;
+            if (state.phase !== 'planning') return false;
+            if (state.me.ready) return false;
+            return true;
+        }
+        
         function updateTimerDisplay(t) {
             const container = document.getElementById('timer-container');
             const timerEl = document.getElementById('timer');
             const phaseEl = document.getElementById('phase-indicator');
             
-            if (t <= 15 && state?.phase === 'planning') {
+            if (t <= 15 && state && state.phase === 'planning') {
                 container.classList.add('visible');
                 timerEl.textContent = t;
                 phaseEl.classList.add('with-timer');
@@ -416,10 +398,12 @@
             const el = document.getElementById('phase-indicator');
             el.classList.remove('redeploy', 'deploy', 'resolution');
             
-            if (state?.phase === 'resolution') {
+            if (!state) return;
+            
+            if (state.phase === 'resolution') {
                 el.textContent = '⚔️ Résolution du Combat';
                 el.classList.add('resolution');
-            } else if (inDeployPhase) {
+            } else if (state.me.inDeployPhase) {
                 el.textContent = '🎴 Phase de Déploiement';
                 el.classList.add('deploy');
             } else {
@@ -430,8 +414,10 @@
         
         function updateButtonState() {
             const btn = document.getElementById('end-turn-btn');
-            if (isMyTurnReady) {
+            if (state && state.me.ready) {
                 btn.classList.add('waiting');
+            } else {
+                btn.classList.remove('waiting');
             }
         }
         
@@ -473,7 +459,6 @@
             const bf = document.getElementById('battlefield');
             bf.innerHTML = '';
             
-            // My side
             const myField = document.createElement('div');
             myField.className = 'field-side';
             for (let row = 0; row < 4; row++) {
@@ -482,7 +467,6 @@
             }
             bf.appendChild(myField);
             
-            // Traps center
             const trapCenter = document.createElement('div');
             trapCenter.className = 'trap-center';
             
@@ -498,7 +482,6 @@
             trapCenter.appendChild(oppTraps);
             bf.appendChild(trapCenter);
             
-            // Opponent side (mirrored)
             const oppField = document.createElement('div');
             oppField.className = 'field-side';
             for (let row = 0; row < 4; row++) {
@@ -554,10 +537,6 @@
             return el;
         }
         
-        function canPlay() {
-            return state && state.phase === 'planning' && !isMyTurnReady;
-        }
-        
         function canPlaceAt(card, col) {
             if (!card || card.type !== 'creature') return false;
             const shooter = card.abilities?.includes('shooter');
@@ -569,7 +548,7 @@
         
         function getValidSlots(card) {
             const valid = [];
-            if (!card) return valid;
+            if (!card || !state) return valid;
             
             if (card.type === 'creature') {
                 for (let row = 0; row < 4; row++) {
@@ -613,7 +592,7 @@
         
         function clearHighlights() {
             document.querySelectorAll('.card-slot, .trap-slot').forEach(s => {
-                s.classList.remove('valid-target', 'drag-over', 'moveable', 'targetable');
+                s.classList.remove('valid-target', 'drag-over', 'moveable');
             });
         }
         
@@ -637,6 +616,7 @@
             renderHand(me.hand, me.energy);
             renderOppHand(opp.handCount);
             
+            // Update ready indicators
             if (me.ready) {
                 document.getElementById('me-ready').classList.add('ready');
                 document.getElementById('me-ready').textContent = '✓';
@@ -778,7 +758,7 @@
         
         function clickFieldCard(row, col, card) {
             if (!canPlay()) return;
-            if (inDeployPhase) return;
+            if (state.me.inDeployPhase) return;
             if (card.movedThisTurn) return;
             
             clearSel();
@@ -836,7 +816,7 @@
             }
             
             const card = state.me.field[row][col];
-            if (card && !inDeployPhase && !card.movedThisTurn) {
+            if (card && !state.me.inDeployPhase && !card.movedThisTurn) {
                 clickFieldCard(row, col, card);
             }
         }
