@@ -250,12 +250,11 @@ async function startResolution(room) {
         }
     }
     
-    // 1. REDÉPLOIEMENTS - Envoyer le state AVANT les moves pour voir les positions d'origine
+    // 1. REDÉPLOIEMENTS - Les animations utilisent les données envoyées
     if (allActions.moves.length > 0) {
         log('🔄 Redéploiements', 'phase');
         await sleep(600);
         
-        // Envoyer toutes les animations de move d'abord
         for (const action of allActions.moves) {
             log(`  ↔️ ${action.heroName}: ${action.card.name} ${slotNames[action.fromRow][action.fromCol]} → ${slotNames[action.toRow][action.toCol]}`, 'action');
             emitAnimation(room, 'move', { 
@@ -268,7 +267,6 @@ async function startResolution(room) {
             });
             await sleep(800);
         }
-        // State sera envoyé après les summons
     }
     
     // 2. POSES DE CRÉATURES 
@@ -276,19 +274,19 @@ async function startResolution(room) {
         log('🎴 Invocations', 'phase');
         await sleep(600);
         
-        // Informer le client des slots qui vont recevoir des créatures adverses (pour les cacher)
-        const summonSlots = allActions.places.map(a => ({ player: a.playerNum, row: a.row, col: a.col }));
-        io.to(room.code).emit('prepareSummons', summonSlots);
-        
         for (const action of allActions.places) {
             log(`  🎴 ${action.heroName}: ${action.card.name} en ${slotNames[action.row][action.col]}`, 'action');
+            // D'abord envoyer l'animation (le client va créer l'overlay et bloquer le slot)
             emitAnimation(room, 'summon', { player: action.playerNum, row: action.row, col: action.col, card: action.card, animateForOpponent: true });
+            // Ensuite envoyer le state (le slot est bloqué, la carte ne sera pas affichée)
+            emitStateToBoth(room);
             await sleep(800);
         }
+    } else {
+        // Pas d'invocations, envoyer le state quand même
+        emitStateToBoth(room);
     }
     
-    // Maintenant envoyer le state complet (après moves et summons)
-    emitStateToBoth(room);
     await sleep(300);
     
     // 3. SORTS DÉFENSIFS (soins)
