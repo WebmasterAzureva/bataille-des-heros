@@ -559,7 +559,8 @@ async function applyAction(room, playerNum, action, log, sleep) {
     // Fonction legacy - non utilisée dans la nouvelle résolution
 }
 
-// Combat pour un slot spécifique - chaque créature attaque sa cible, pas de riposte automatique
+// Combat pour un slot spécifique - chaque créature attaque sa cible
+// Riposte uniquement si la cible ne peut pas attaquer ce tour ET l'attaquant n'est pas un tireur
 async function processCombatSlot(room, row, col, log, sleep) {
     const slotNames = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
     const slotLetter = slotNames[row][col];
@@ -626,7 +627,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
     }
     await sleep(500);
     
-    // Calculer les dégâts - CHAQUE CRÉATURE N'INFLIGE SES DÉGÂTS QU'À SA CIBLE
+    // Calculer les dégâts
     const damages = [];
     
     for (const atk of attacks) {
@@ -649,9 +650,23 @@ async function processCombatSlot(room, row, col, log, sleep) {
                 defenderName: atk.target.name
             });
             
-            // PAS DE RIPOSTE AUTOMATIQUE
-            // La riposte n'existe que si les deux créatures se ciblent mutuellement
-            // Dans ce cas, les deux attaques sont déjà dans la liste "attacks"
+            // RIPOSTE : seulement si la cible NE PEUT PAS attaquer ce tour
+            // ET l'attaquant N'EST PAS un tireur
+            const attackerIsShooter = atk.attacker.abilities.includes('shooter');
+            const targetCanAttack = atk.target.canAttack;
+            
+            if (!targetCanAttack && !attackerIsShooter) {
+                damages.push({
+                    type: 'creature',
+                    player: atk.attackerPlayer,
+                    row: atk.attackerRow,
+                    col: atk.attackerCol,
+                    amount: atk.target.atk,
+                    attackerName: atk.target.name,
+                    defenderName: atk.attacker.name,
+                    isRiposte: true
+                });
+            }
         }
     }
     
@@ -666,7 +681,11 @@ async function processCombatSlot(room, row, col, log, sleep) {
             const targetCard = room.gameState.players[dmg.player].field[dmg.row][dmg.col];
             if (targetCard) {
                 targetCard.currentHp -= dmg.amount;
-                log(`⚔️ ${dmg.attackerName} → ${dmg.defenderName} (-${dmg.amount})`, 'damage');
+                if (dmg.isRiposte) {
+                    log(`↩️ ${dmg.attackerName} riposte sur ${dmg.defenderName} (-${dmg.amount})`, 'damage');
+                } else {
+                    log(`⚔️ ${dmg.attackerName} → ${dmg.defenderName} (-${dmg.amount})`, 'damage');
+                }
                 emitAnimation(room, 'damage', { player: dmg.player, row: dmg.row, col: dmg.col, amount: dmg.amount });
             }
         }
