@@ -66,12 +66,14 @@
         .side-panel.left { left: 15px; }
         .side-panel.right { right: 15px; }
         
-        .hero-card { width: 110px; height: 150px; border-radius: 10px; background: linear-gradient(135deg, #3a3a5a, #2a2a4a); border: 4px solid #5a5a8a; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+        .hero-card { width: 110px; height: 150px; border-radius: 10px; background: linear-gradient(135deg, #3a3a5a, #2a2a4a); border: 4px solid #5a5a8a; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.5); transition: all 0.3s; }
         .side-panel.left .hero-card { border-color: #4a9a4a; background: linear-gradient(135deg, #2a4a3a, #1a3a2a); }
         .side-panel.right .hero-card { border-color: #9a4a4a; background: linear-gradient(135deg, #4a2a3a, #3a1a2a); }
+        .hero-card.hit { animation: heroHit 0.5s ease-out; }
+        @keyframes heroHit { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); box-shadow: 0 0 30px rgba(255,0,0,0.8); } }
         .hero-label { font-size: 0.8em; margin-bottom: 5px; color: #ccc; }
         .hero-icon { font-size: 3em; }
-        .hero-hp { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); background: radial-gradient(circle at 30% 30%, #e74c3c, #922b21); width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3em; font-weight: bold; border: 3px solid #f5b7b1; box-shadow: 0 3px 10px rgba(0,0,0,0.4); }
+        .hero-hp { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); background: radial-gradient(circle at 30% 30%, #e74c3c, #922b21); width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3em; font-weight: bold; border: 3px solid #f5b7b1; box-shadow: 0 3px 10px rgba(0,0,0,0.4); transition: all 0.3s; }
         .ready-dot { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%; background: #7f8c8d; border: 3px solid white; font-size: 0.5em; display: flex; align-items: center; justify-content: center; }
         .ready-dot.ready { background: #27ae60; }
         
@@ -100,11 +102,14 @@
         .card-slot.moveable { border-color: #3498db !important; background: rgba(52,152,219,0.25) !important; box-shadow: 0 0 15px rgba(52,152,219,0.5); }
         @keyframes validPulse { 0%,100% { box-shadow: 0 0 10px rgba(46,204,113,0.4); } 50% { box-shadow: 0 0 25px rgba(46,204,113,0.8); } }
         
-        .trap-slot { width: 45px; height: 45px; margin: auto 0; border: 2px dashed rgba(200,150,200,0.4); border-radius: 50%; background: rgba(200,150,200,0.1); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 0.55em; color: rgba(255,255,255,0.4); }
+        .trap-slot { width: 50px; height: 50px; margin: auto 0; border: 2px dashed rgba(200,150,200,0.4); border-radius: 50%; background: rgba(200,150,200,0.1); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 0.55em; color: rgba(255,255,255,0.4); }
         .trap-slot:hover { border-color: #ffd700; background: rgba(255,215,0,0.2); }
         .trap-slot.has-trap { border-style: solid; background: rgba(231,76,60,0.3); border-color: #e74c3c; font-size: 1.3em; color: white; }
+        .trap-slot.has-trap.mine { background: rgba(46,204,113,0.3); border-color: #27ae60; }
         .trap-slot.valid-target { border-color: #2ecc71 !important; background: rgba(46,204,113,0.3) !important; }
         .trap-slot.drag-over { border-color: #f1c40f !important; background: rgba(241,196,15,0.4) !important; }
+        .trap-slot.triggered { animation: trapExplode 0.6s ease-out; }
+        @keyframes trapExplode { 0% { transform: scale(1); } 50% { transform: scale(1.8); background: rgba(255,100,0,0.8); } 100% { transform: scale(0); opacity: 0; } }
         
         .card { width: 86px; height: 116px; border-radius: 6px; position: relative; cursor: grab; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; background: #111; flex-shrink: 0; }
         .card.dragging { opacity: 0.4; cursor: grabbing; }
@@ -129,6 +134,34 @@
         .card.can-attack { box-shadow: 0 0 10px rgba(231,76,60,0.6); }
         .card.field-selected { box-shadow: 0 0 15px rgba(52,152,219,0.9); border-color: #3498db !important; }
         .card.unplayable { opacity: 0.3 !important; filter: grayscale(80%); cursor: not-allowed !important; }
+        
+        /* ANIMATIONS */
+        .card.attacking { animation: attackAnim 0.4s ease-out; }
+        @keyframes attackAnim { 0% { transform: translateX(0); } 50% { transform: translateX(30px) scale(1.1); } 100% { transform: translateX(0); } }
+        
+        .card.taking-damage { animation: damageAnim 0.4s ease-out; }
+        @keyframes damageAnim { 0%, 100% { filter: none; } 50% { filter: brightness(2) saturate(0); box-shadow: 0 0 20px red; } }
+        
+        .card.dying { animation: deathAnim 0.6s ease-out forwards; }
+        @keyframes deathAnim { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0) rotate(180deg); opacity: 0; } }
+        
+        .card.summoning { animation: summonAnim 0.5s ease-out; }
+        @keyframes summonAnim { 0% { transform: scale(0) translateY(-50px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+        
+        .card.healing { animation: healAnim 0.5s ease-out; }
+        @keyframes healAnim { 0%, 100% { box-shadow: none; } 50% { box-shadow: 0 0 30px rgba(46,204,113,0.9); } }
+        
+        /* Projectile d'attaque */
+        .attack-projectile { position: fixed; z-index: 1000; font-size: 2em; pointer-events: none; transition: all 0.3s ease-out; }
+        
+        /* Effet de sort */
+        .spell-effect { position: fixed; z-index: 1000; font-size: 3em; pointer-events: none; animation: spellAnim 0.6s ease-out forwards; }
+        @keyframes spellAnim { 0% { transform: scale(0); opacity: 1; } 50% { transform: scale(1.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
+        
+        /* Nombre de dégâts flottant */
+        .damage-number { position: fixed; z-index: 1001; font-size: 1.8em; font-weight: bold; color: #e74c3c; text-shadow: 2px 2px 4px black; pointer-events: none; animation: damageFloat 1s ease-out forwards; }
+        .damage-number.heal { color: #2ecc71; }
+        @keyframes damageFloat { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-50px) scale(1.5); } }
         
         .my-hand { position: absolute; bottom: 8px; left: 140px; display: flex; padding: 10px 15px; background: rgba(20,20,40,0.95); border-radius: 10px 10px 0 0; border: 2px solid #5a4a3a; border-bottom: none; max-width: calc(45% - 150px); }
         .my-hand .card { margin-left: -45px; transition: transform 0.2s, margin 0.2s; }
@@ -215,7 +248,7 @@
         <div class="phase-indicator deploy" id="phase-indicator">🔄 Phase de Redéploiement</div>
         
         <div class="side-panel left">
-            <div class="hero-card">
+            <div class="hero-card" id="hero-me">
                 <div class="ready-dot" id="me-ready"></div>
                 <div class="hero-label">HÉROS</div>
                 <div class="hero-icon" id="me-icon">🧙‍♂️</div>
@@ -236,7 +269,7 @@
         </div>
         
         <div class="side-panel right">
-            <div class="hero-card">
+            <div class="hero-card" id="hero-opp">
                 <div class="ready-dot" id="opp-ready"></div>
                 <div class="hero-label">HÉROS</div>
                 <div class="hero-icon" id="opp-icon">⚔️</div>
@@ -287,7 +320,6 @@
             socket = io();
             
             socket.on('gameStart', (s) => {
-                console.log('Game started', s);
                 state = s;
                 myNum = s.myPlayer;
                 setupHeroes();
@@ -300,7 +332,6 @@
             });
             
             socket.on('gameStateUpdate', (s) => {
-                console.log('State update', s);
                 state = s;
                 render();
                 updatePhaseDisplay();
@@ -313,27 +344,20 @@
             });
             
             socket.on('phaseChange', (p) => {
-                console.log('Phase change:', p);
                 if(state) state.phase = p; 
                 updatePhaseDisplay();
             });
             
             socket.on('playerReady', (n) => {
-                console.log('Player ready:', n);
                 const isMe = n === myNum;
                 document.getElementById(isMe ? 'me-ready' : 'opp-ready').classList.add('ready');
                 document.getElementById(isMe ? 'me-ready' : 'opp-ready').textContent = '✓';
-                if (isMe) {
-                    updateButtonState();
-                }
+                if (isMe) updateButtonState();
                 log(isMe ? 'Vous êtes prêt' : 'Adversaire prêt', 'action');
             });
             
             socket.on('newTurn', (d) => {
-                console.log('New turn:', d);
                 currentTimer = 90;
-                
-                // Reset UI for new turn
                 document.getElementById('me-ready').classList.remove('ready');
                 document.getElementById('opp-ready').classList.remove('ready');
                 document.getElementById('me-ready').textContent = '';
@@ -351,10 +375,12 @@
             socket.on('resolutionLog', (d) => log(d.msg, d.type));
             
             socket.on('directDamage', (d) => {
-                const el = document.getElementById(d.defender === myNum ? 'me-hp' : 'opp-hp');
-                el.style.background = 'radial-gradient(circle, #ff0000, #880000)';
-                setTimeout(() => el.style.background = '', 400);
+                const heroEl = document.getElementById(d.defender === myNum ? 'hero-me' : 'hero-opp');
+                heroEl.classList.add('hit');
+                setTimeout(() => heroEl.classList.remove('hit'), 500);
             });
+            
+            socket.on('animation', handleAnimation);
             
             socket.on('gameOver', (d) => {
                 const won = d.winner === myNum;
@@ -364,6 +390,187 @@
             });
             
             socket.on('playerDisconnected', () => log('⚠️ Adversaire déconnecté', 'damage'));
+        }
+        
+        function handleAnimation(data) {
+            const { type } = data;
+            
+            switch(type) {
+                case 'attack':
+                    animateAttack(data);
+                    break;
+                case 'damage':
+                    animateDamage(data);
+                    break;
+                case 'death':
+                    animateDeath(data);
+                    break;
+                case 'spell':
+                    animateSpell(data);
+                    break;
+                case 'heal':
+                    animateHeal(data);
+                    break;
+                case 'trapTrigger':
+                    animateTrap(data);
+                    break;
+                case 'summon':
+                    animateSummon(data);
+                    break;
+                case 'heroHit':
+                    const heroEl = document.getElementById(data.defender === myNum ? 'hero-me' : 'hero-opp');
+                    heroEl.classList.add('hit');
+                    setTimeout(() => heroEl.classList.remove('hit'), 500);
+                    break;
+            }
+        }
+        
+        function animateAttack(data) {
+            const owner = data.attacker === myNum ? 'me' : 'opp';
+            const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
+            const card = slot?.querySelector('.card');
+            if (card) {
+                card.classList.add('attacking');
+                setTimeout(() => card.classList.remove('attacking'), 400);
+            }
+            
+            // Projectile
+            if (slot) {
+                const rect = slot.getBoundingClientRect();
+                const projectile = document.createElement('div');
+                projectile.className = 'attack-projectile';
+                projectile.textContent = data.isShooter ? '🏹' : data.isFlying ? '💨' : '⚔️';
+                projectile.style.left = rect.left + rect.width/2 + 'px';
+                projectile.style.top = rect.top + rect.height/2 + 'px';
+                document.body.appendChild(projectile);
+                
+                const targetOwner = data.targetPlayer === myNum ? 'me' : 'opp';
+                let targetX, targetY;
+                
+                if (data.targetCol === -1) {
+                    // Hit hero
+                    const heroEl = document.getElementById(targetOwner === 'me' ? 'hero-me' : 'hero-opp');
+                    const heroRect = heroEl.getBoundingClientRect();
+                    targetX = heroRect.left + heroRect.width/2;
+                    targetY = heroRect.top + heroRect.height/2;
+                } else {
+                    const targetSlot = document.querySelector(`.card-slot[data-owner="${targetOwner}"][data-row="${data.targetRow}"][data-col="${data.targetCol}"]`);
+                    if (targetSlot) {
+                        const targetRect = targetSlot.getBoundingClientRect();
+                        targetX = targetRect.left + targetRect.width/2;
+                        targetY = targetRect.top + targetRect.height/2;
+                    }
+                }
+                
+                if (targetX && targetY) {
+                    setTimeout(() => {
+                        projectile.style.left = targetX + 'px';
+                        projectile.style.top = targetY + 'px';
+                        projectile.style.transform = 'scale(1.5)';
+                    }, 50);
+                }
+                
+                setTimeout(() => projectile.remove(), 350);
+            }
+        }
+        
+        function animateDamage(data) {
+            const owner = data.player === myNum ? 'me' : 'opp';
+            const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
+            const card = slot?.querySelector('.card');
+            if (card) {
+                card.classList.add('taking-damage');
+                setTimeout(() => card.classList.remove('taking-damage'), 400);
+            }
+            
+            // Floating damage number
+            if (slot) {
+                const rect = slot.getBoundingClientRect();
+                const num = document.createElement('div');
+                num.className = 'damage-number';
+                num.textContent = `-${data.amount}`;
+                num.style.left = rect.left + rect.width/2 - 20 + 'px';
+                num.style.top = rect.top + 'px';
+                document.body.appendChild(num);
+                setTimeout(() => num.remove(), 1000);
+            }
+        }
+        
+        function animateDeath(data) {
+            const owner = data.player === myNum ? 'me' : 'opp';
+            const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
+            const card = slot?.querySelector('.card');
+            if (card) {
+                card.classList.add('dying');
+            }
+        }
+        
+        function animateSpell(data) {
+            const targetOwner = data.targetPlayer === myNum ? 'me' : 'opp';
+            const slot = document.querySelector(`.card-slot[data-owner="${targetOwner}"][data-row="${data.row}"][data-col="${data.col}"]`);
+            
+            if (slot) {
+                const rect = slot.getBoundingClientRect();
+                const effect = document.createElement('div');
+                effect.className = 'spell-effect';
+                effect.textContent = data.spell.icon || '✨';
+                effect.style.left = rect.left + rect.width/2 - 30 + 'px';
+                effect.style.top = rect.top + rect.height/2 - 30 + 'px';
+                document.body.appendChild(effect);
+                setTimeout(() => effect.remove(), 600);
+            }
+        }
+        
+        function animateHeal(data) {
+            const owner = data.player === myNum ? 'me' : 'opp';
+            const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
+            const card = slot?.querySelector('.card');
+            if (card) {
+                card.classList.add('healing');
+                setTimeout(() => card.classList.remove('healing'), 500);
+            }
+            
+            if (slot) {
+                const rect = slot.getBoundingClientRect();
+                const num = document.createElement('div');
+                num.className = 'damage-number heal';
+                num.textContent = `+${data.amount}`;
+                num.style.left = rect.left + rect.width/2 - 20 + 'px';
+                num.style.top = rect.top + 'px';
+                document.body.appendChild(num);
+                setTimeout(() => num.remove(), 1000);
+            }
+        }
+        
+        function animateTrap(data) {
+            const owner = data.player === myNum ? 'me' : 'opp';
+            const trapSlot = document.querySelector(`.trap-slot[data-owner="${owner}"][data-row="${data.row}"]`);
+            if (trapSlot) {
+                trapSlot.classList.add('triggered');
+                
+                const rect = trapSlot.getBoundingClientRect();
+                const effect = document.createElement('div');
+                effect.className = 'spell-effect';
+                effect.textContent = '💥';
+                effect.style.left = rect.left + rect.width/2 - 30 + 'px';
+                effect.style.top = rect.top + rect.height/2 - 30 + 'px';
+                document.body.appendChild(effect);
+                setTimeout(() => effect.remove(), 600);
+                
+                setTimeout(() => trapSlot.classList.remove('triggered'), 600);
+            }
+        }
+        
+        function animateSummon(data) {
+            const owner = data.player === myNum ? 'me' : 'opp';
+            setTimeout(() => {
+                const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
+                const card = slot?.querySelector('.card');
+                if (card) {
+                    card.classList.add('summoning');
+                    setTimeout(() => card.classList.remove('summoning'), 500);
+                }
+            }, 100);
         }
         
         function canPlay() {
@@ -382,12 +589,7 @@
                 container.classList.add('visible');
                 timerEl.textContent = t;
                 phaseEl.classList.add('with-timer');
-                
-                if (t <= 5) {
-                    container.classList.add('urgent');
-                } else {
-                    container.classList.remove('urgent');
-                }
+                container.classList.toggle('urgent', t <= 5);
             } else {
                 container.classList.remove('visible', 'urgent');
                 phaseEl.classList.remove('with-timer');
@@ -397,7 +599,6 @@
         function updatePhaseDisplay() {
             const el = document.getElementById('phase-indicator');
             el.classList.remove('redeploy', 'deploy', 'resolution');
-            
             if (!state) return;
             
             if (state.phase === 'resolution') {
@@ -414,11 +615,7 @@
         
         function updateButtonState() {
             const btn = document.getElementById('end-turn-btn');
-            if (state && state.me.ready) {
-                btn.classList.add('waiting');
-            } else {
-                btn.classList.remove('waiting');
-            }
+            btn.classList.toggle('waiting', state && state.me.ready);
         }
         
         function setupHeroes() {
@@ -470,10 +667,12 @@
             const trapCenter = document.createElement('div');
             trapCenter.className = 'trap-center';
             
+            // My traps (left column of center)
             const myTraps = document.createElement('div');
             myTraps.className = 'trap-col';
             for (let i = 0; i < 4; i++) myTraps.appendChild(makeTrapSlot('me', i));
             
+            // Opponent traps (right column of center)
             const oppTraps = document.createElement('div');
             oppTraps.className = 'trap-col';
             for (let i = 0; i < 4; i++) oppTraps.appendChild(makeTrapSlot('opp', i));
@@ -611,12 +810,10 @@
             
             renderField('me', me.field);
             renderField('opp', opp.field);
-            renderTraps('me', me.traps);
-            renderTraps('opp', opp.trapsCount);
+            renderTraps();
             renderHand(me.hand, me.energy);
             renderOppHand(opp.handCount);
             
-            // Update ready indicators
             if (me.ready) {
                 document.getElementById('me-ready').classList.add('ready');
                 document.getElementById('me-ready').textContent = '✓';
@@ -653,22 +850,34 @@
             }
         }
         
-        function renderTraps(owner, data) {
-            if (owner === 'me') {
-                data.forEach((trap, i) => {
-                    const slot = document.querySelector(`.trap-slot[data-owner="me"][data-row="${i}"]`);
-                    if (slot) {
-                        slot.classList.toggle('has-trap', !!trap);
-                        slot.textContent = trap ? '💣' : 'Piège';
+        function renderTraps() {
+            // My traps
+            state.me.traps.forEach((trap, i) => {
+                const slot = document.querySelector(`.trap-slot[data-owner="me"][data-row="${i}"]`);
+                if (slot) {
+                    slot.classList.remove('has-trap', 'mine');
+                    if (trap) {
+                        slot.classList.add('has-trap', 'mine');
+                        slot.textContent = '💣';
+                    } else {
+                        slot.textContent = 'Piège';
                     }
-                });
-            } else {
-                document.querySelectorAll('.trap-slot[data-owner="opp"]').forEach((slot, i) => {
-                    const hasTrap = i < data;
-                    slot.classList.toggle('has-trap', hasTrap);
-                    slot.textContent = hasTrap ? '❓' : 'Piège';
-                });
-            }
+                }
+            });
+            
+            // Opponent traps - show from their traps array
+            state.opponent.traps.forEach((trap, i) => {
+                const slot = document.querySelector(`.trap-slot[data-owner="opp"][data-row="${i}"]`);
+                if (slot) {
+                    slot.classList.remove('has-trap', 'mine');
+                    if (trap) {
+                        slot.classList.add('has-trap');
+                        slot.textContent = '❓';
+                    } else {
+                        slot.textContent = 'Piège';
+                    }
+                }
+            });
         }
         
         function renderHand(hand, energy) {
@@ -746,7 +955,6 @@
         
         function selectCard(i) {
             if (!canPlay()) return;
-            
             const card = state.me.hand[i];
             if (card.cost > state.me.energy) return;
             
@@ -773,11 +981,9 @@
         
         function highlightMoveTargets(fromRow, fromCol, card) {
             clearHighlights();
-            
             [fromRow - 1, fromRow + 1].forEach(toRow => {
                 if (toRow < 0 || toRow > 3) return;
                 if (state.me.field[toRow][fromCol]) return;
-                
                 const slot = document.querySelector(`.card-slot[data-owner="me"][data-row="${toRow}"][data-col="${fromCol}"]`);
                 if (slot) slot.classList.add('moveable');
             });
