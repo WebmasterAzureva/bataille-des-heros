@@ -501,6 +501,27 @@
             
             socket.on('animation', handleAnimation);
             
+            // Bloquer les slots qui vont recevoir des créatures (avant le state)
+            socket.on('blockSlots', (slots) => {
+                slots.forEach(s => {
+                    // Bloquer seulement les créatures adverses
+                    if (s.player !== myNum) {
+                        const owner = 'opp';
+                        const slotKey = `${owner}-${s.row}-${s.col}`;
+                        animatingSlots.add(slotKey);
+                        
+                        // Vider le slot au cas où
+                        const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${s.row}"][data-col="${s.col}"]`);
+                        if (slot) {
+                            const label = slot.querySelector('.slot-label');
+                            slot.innerHTML = '';
+                            if (label) slot.appendChild(label.cloneNode(true));
+                            slot.classList.remove('has-card');
+                        }
+                    }
+                });
+            });
+            
             socket.on('gameOver', (d) => {
                 const won = d.winner === myNum;
                 document.getElementById('result').textContent = won ? '🎉 Victoire !' : '😢 Défaite';
@@ -695,14 +716,14 @@
             const owner = data.player === myNum ? 'me' : 'opp';
             const slotKey = `${owner}-${data.row}-${data.col}`;
             
-            // Bloquer le slot IMMÉDIATEMENT
+            // Le slot devrait déjà être bloqué par blockSlots, mais on s'assure
             animatingSlots.add(slotKey);
             
             // Trouver le slot cible
             const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
             if (!slot) return;
             
-            // Vider le slot immédiatement (au cas où render() aurait déjà mis quelque chose)
+            // Vider le slot (au cas où)
             const label = slot.querySelector('.slot-label');
             slot.innerHTML = '';
             if (label) slot.appendChild(label.cloneNode(true));
@@ -723,7 +744,7 @@
             
             document.body.appendChild(cardEl);
             
-            // Après l'animation pop (500ms)
+            // Après l'animation pop (550ms)
             setTimeout(() => {
                 // Retirer l'overlay
                 cardEl.remove();
