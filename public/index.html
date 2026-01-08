@@ -36,81 +36,90 @@
         .game-container.active { display: block; }
         
         /* TOP BAR */
-        .top-bar { position: absolute; top: 0; left: 0; right: 0; height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; background: rgba(20,20,40,0.95); border-bottom: 2px solid #5a4a3a; z-index: 50; }
-        .player-info-bar { display: flex; align-items: center; gap: 12px; }
-        .player-name { font-size: 0.95em; padding: 6px 15px; border-radius: 5px; }
-        .player-name.me { background: linear-gradient(135deg, #2a4a2a, #1a3a1a); border: 2px solid #4a7c4a; }
-        .player-name.opp { background: linear-gradient(135deg, #4a2a2a, #3a1a1a); border: 2px solid #7c4a4a; }
-        .energy-orb { width: 42px; height: 42px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #4fc3f7, #0288d1); border: 3px solid #29b6f6; display: flex; align-items: center; justify-content: center; font-size: 0.8em; font-weight: bold; }
+        .top-bar { position: absolute; top: 0; left: 0; right: 0; height: 45px; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; background: rgba(20,20,40,0.95); border-bottom: 2px solid #5a4a3a; z-index: 50; }
+        .player-info-bar { display: flex; align-items: center; gap: 10px; }
+        .rank-badge { background: #5a5a7a; padding: 4px 10px; border-radius: 4px; font-size: 0.75em; }
+        .player-name { font-size: 0.9em; padding: 5px 12px; border-radius: 5px; }
+        .player-name.me { background: linear-gradient(135deg, #2a4a6a, #1a3a5a); border: 2px solid #4a7c9a; }
+        .player-name.opp { background: linear-gradient(135deg, #6a2a4a, #5a1a3a); border: 2px solid #9a4a7c; }
+        .options-btn { width: 35px; height: 35px; border-radius: 50%; background: #5a4a3a; border: 2px solid #8b7355; cursor: pointer; font-size: 1em; display: flex; align-items: center; justify-content: center; }
         
         /* END TURN BUTTON */
-        .end-turn-btn { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); width: 85px; height: 85px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ff6b35, #c41e00); border: 4px solid #ffd700; cursor: pointer; font-size: 0.6em; font-weight: bold; color: white; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s; }
-        .end-turn-btn:hover { transform: translateX(-50%) scale(1.1); }
-        .end-turn-btn:disabled { background: radial-gradient(circle at 30% 30%, #555, #333); border-color: #666; cursor: not-allowed; }
-        .end-turn-btn.waiting { background: radial-gradient(circle at 30% 30%, #666, #444); }
-        .timer-text { font-size: 1.8em; margin-top: 2px; }
+        .end-turn-btn { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); width: 90px; height: 60px; border-radius: 10px; background: linear-gradient(180deg, #ff6b35, #c41e00); border: 3px solid #ffd700; cursor: pointer; font-size: 0.55em; font-weight: bold; color: white; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s; }
+        .end-turn-btn:hover { transform: translateX(-50%) scale(1.05); }
+        .end-turn-btn:disabled { background: linear-gradient(180deg, #555, #333); border-color: #666; cursor: not-allowed; }
+        .end-turn-btn.waiting { background: linear-gradient(180deg, #666, #444); }
+        .energy-display { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); margin-top: 65px; font-size: 0.9em; color: #ffd700; }
+        .timer-text { font-size: 1.8em; }
         
         /* PHASE INDICATOR */
-        .phase-indicator { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); padding: 8px 25px; background: rgba(46,204,113,0.9); border-radius: 20px; border: 2px solid #58d68d; font-size: 0.85em; z-index: 90; white-space: nowrap; }
+        .phase-indicator { position: absolute; top: 125px; left: 50%; transform: translateX(-50%); padding: 6px 20px; background: rgba(46,204,113,0.9); border-radius: 15px; border: 2px solid #58d68d; font-size: 0.75em; z-index: 90; white-space: nowrap; }
         .phase-indicator.redeploy { background: rgba(52,152,219,0.9); border-color: #5dade2; }
         .phase-indicator.deploy { background: rgba(46,204,113,0.9); border-color: #58d68d; }
         .phase-indicator.resolution { background: rgba(231,76,60,0.9); border-color: #ec7063; }
         
-        /* HERO ZONES */
-        .hero-zone { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; }
-        .hero-zone.me { left: 15px; }
-        .hero-zone.opp { right: 15px; }
-        .hero-card { width: 85px; height: 110px; border-radius: 8px; background: linear-gradient(135deg, #2a2a4a, #1a1a2a); border: 3px solid #8b7355; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
-        .hero-zone.me .hero-card { border-color: #4a7c4a; }
-        .hero-zone.opp .hero-card { border-color: #7c4a4a; }
-        .hero-icon { font-size: 2.2em; }
-        .hero-name { font-size: 0.6em; margin-top: 2px; }
-        .hero-hp { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); background: radial-gradient(circle at 30% 30%, #e74c3c, #922b21); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1em; font-weight: bold; border: 3px solid #f5b7b1; }
-        .ready-dot { position: absolute; top: -5px; right: -5px; width: 18px; height: 18px; border-radius: 50%; background: #7f8c8d; border: 2px solid white; font-size: 0.5em; display: flex; align-items: center; justify-content: center; }
+        /* SIDE PANELS - Hero, Deck, Graveyard */
+        .side-panel { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .side-panel.left { left: 10px; }
+        .side-panel.right { right: 10px; }
+        
+        .hero-card { width: 90px; height: 115px; border-radius: 8px; background: linear-gradient(135deg, #3a3a5a, #2a2a4a); border: 3px solid #5a5a8a; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .side-panel.left .hero-card { border-color: #4a7c4a; background: linear-gradient(135deg, #2a4a3a, #1a3a2a); }
+        .side-panel.right .hero-card { border-color: #7c4a4a; background: linear-gradient(135deg, #4a2a3a, #3a1a2a); }
+        .hero-label { font-size: 0.7em; margin-bottom: 3px; }
+        .hero-icon { font-size: 2em; }
+        .hero-hp { position: absolute; bottom: 8px; left: 8px; background: radial-gradient(circle at 30% 30%, #e74c3c, #922b21); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1em; font-weight: bold; border: 2px solid #f5b7b1; }
+        .ready-dot { position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 50%; background: #7f8c8d; border: 2px solid white; font-size: 0.45em; display: flex; align-items: center; justify-content: center; }
         .ready-dot.ready { background: #27ae60; }
-        .deck-pile { width: 60px; height: 85px; position: relative; margin-top: 12px; }
-        .deck-card-back { position: absolute; width: 100%; height: 100%; border-radius: 5px; background: linear-gradient(135deg, #4a3a2a, #2a2015); border: 2px solid #8b7355; display: flex; align-items: center; justify-content: center; font-size: 1.2em; }
-        .deck-card-back:nth-child(1) { top: 0; left: 0; }
-        .deck-card-back:nth-child(2) { top: 2px; left: 2px; }
-        .deck-card-back:nth-child(3) { top: 4px; left: 4px; }
-        .deck-count { font-size: 0.65em; color: #aaa; margin-top: 8px; text-transform: uppercase; }
+        
+        .deck-grave-row { display: flex; gap: 8px; }
+        .deck-box, .grave-box { width: 55px; height: 75px; border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.6em; }
+        .deck-box { background: linear-gradient(135deg, #4a3a2a, #2a2015); border: 2px solid #8b7355; }
+        .grave-box { background: linear-gradient(135deg, #3a3a4a, #2a2a3a); border: 2px dashed #6a6a7a; }
+        .deck-icon { font-size: 1.5em; margin-bottom: 2px; }
         
         /* BATTLEFIELD */
-        .battlefield { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; padding: 12px; background: rgba(0,0,0,0.4); border-radius: 12px; border: 2px solid rgba(139,115,85,0.4); }
-        .bf-side { display: grid; grid-template-columns: repeat(2, 115px); grid-template-rows: repeat(4, 155px); gap: 5px; }
-        .trap-col { display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+        .battlefield { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 8px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; }
+        
+        .field-side { display: grid; grid-template-columns: repeat(2, 95px); grid-template-rows: repeat(4, 125px); gap: 4px; }
+        
+        .trap-center { display: flex; gap: 4px; }
+        .trap-col { display: grid; grid-template-rows: repeat(4, 125px); gap: 4px; }
         
         /* CARD SLOT */
-        .card-slot { width: 115px; height: 155px; border: 2px dashed rgba(255,255,255,0.2); border-radius: 8px; background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s; position: relative; }
+        .card-slot { width: 95px; height: 125px; border: 2px dashed rgba(139,155,200,0.4); border-radius: 6px; background: rgba(139,155,200,0.1); cursor: pointer; transition: all 0.2s; position: relative; display: flex; align-items: center; justify-content: center; }
+        .card-slot .slot-label { position: absolute; font-size: 0.7em; color: rgba(255,255,255,0.3); pointer-events: none; }
         .card-slot:hover { border-color: rgba(255,215,0,0.5); background: rgba(255,215,0,0.1); }
-        .card-slot.me-slot { border-color: rgba(74,124,74,0.5); }
-        .card-slot.opp-slot { border-color: rgba(124,74,74,0.5); }
+        .card-slot.me-slot { border-color: rgba(74,124,150,0.5); background: rgba(74,124,150,0.1); }
+        .card-slot.opp-slot { border-color: rgba(150,74,100,0.5); background: rgba(150,74,100,0.1); }
         .card-slot.has-card { border-color: transparent; background: transparent; }
-        .card-slot.drag-over { border-color: #2ecc71 !important; background: rgba(46,204,113,0.3) !important; box-shadow: 0 0 20px rgba(46,204,113,0.6); }
+        .card-slot.valid-target { border-color: #2ecc71 !important; background: rgba(46,204,113,0.3) !important; box-shadow: 0 0 15px rgba(46,204,113,0.6); animation: validPulse 1s infinite; }
+        .card-slot.drag-over { border-color: #f1c40f !important; background: rgba(241,196,15,0.4) !important; box-shadow: 0 0 20px rgba(241,196,15,0.8); }
         .card-slot.targetable { border-color: #e74c3c !important; animation: glow 1s infinite; }
-        .card-slot.moveable { border-color: #3498db !important; background: rgba(52,152,219,0.2) !important; }
+        .card-slot.moveable { border-color: #3498db !important; background: rgba(52,152,219,0.3) !important; }
+        @keyframes validPulse { 0%,100% { box-shadow: 0 0 10px rgba(46,204,113,0.5); } 50% { box-shadow: 0 0 25px rgba(46,204,113,0.9); } }
         @keyframes glow { 0%,100% { box-shadow: 0 0 5px #e74c3c; } 50% { box-shadow: 0 0 20px #e74c3c; } }
         
         /* TRAP SLOT */
-        .trap-slot { width: 48px; height: 48px; border: 2px dashed rgba(255,255,255,0.3); transform: rotate(45deg); cursor: pointer; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .trap-slot { width: 50px; height: 50px; margin: auto 0; border: 2px dashed rgba(200,150,200,0.4); border-radius: 50%; background: rgba(200,150,200,0.1); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 0.9em; }
         .trap-slot:hover { border-color: #ffd700; background: rgba(255,215,0,0.2); }
-        .trap-inner { transform: rotate(-45deg); font-size: 1.1em; }
-        .trap-slot.has-trap { border-style: solid; background: rgba(231,76,60,0.4); border-color: #e74c3c; }
-        .trap-slot.drag-over { border-color: #2ecc71 !important; background: rgba(46,204,113,0.3) !important; }
+        .trap-slot.has-trap { border-style: solid; background: rgba(231,76,60,0.3); border-color: #e74c3c; }
+        .trap-slot.valid-target { border-color: #2ecc71 !important; background: rgba(46,204,113,0.3) !important; }
+        .trap-slot.drag-over { border-color: #f1c40f !important; background: rgba(241,196,15,0.4) !important; }
         
         /* CARDS */
-        .card { width: 110px; height: 150px; border-radius: 8px; position: relative; cursor: grab; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s, z-index 0s; background: #111; flex-shrink: 0; }
-        .card.dragging { opacity: 0.4; }
-        .card-cost { position: absolute; top: 4px; left: 4px; width: 26px; height: 26px; background: radial-gradient(circle at 30% 30%, #4fc3f7, #0277bd); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.95em; font-weight: bold; border: 2px solid #81d4fa; z-index: 5; }
-        .card-art { width: 100%; height: 72px; display: flex; align-items: center; justify-content: center; font-size: 2.6em; }
+        .card { width: 90px; height: 120px; border-radius: 6px; position: relative; cursor: grab; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; background: #111; flex-shrink: 0; }
+        .card.dragging { opacity: 0.4; cursor: grabbing; }
+        .card-cost { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; background: radial-gradient(circle at 30% 30%, #4fc3f7, #0277bd); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85em; font-weight: bold; border: 2px solid #81d4fa; z-index: 5; }
+        .card-art { width: 100%; height: 58px; display: flex; align-items: center; justify-content: center; font-size: 2.2em; }
         .card.creature .card-art { background: linear-gradient(180deg, #2a3a5a, #151d2e); }
         .card.spell .card-art { background: linear-gradient(180deg, #5a2a6a, #2d1535); }
         .card.trap-card .card-art { background: linear-gradient(180deg, #6a2a2a, #351515); }
-        .card-body { background: #0a0a0a; padding: 5px; height: 78px; }
-        .card-name { font-size: 0.6em; font-weight: bold; text-align: center; color: #ffd700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .card-abilities { display: flex; gap: 2px; justify-content: center; font-size: 0.8em; margin: 3px 0; }
-        .card-stats { display: flex; justify-content: space-between; padding: 0 8px; margin-top: 5px; }
-        .stat { font-size: 0.95em; font-weight: bold; padding: 3px 10px; border-radius: 4px; }
+        .card-body { background: #0a0a0a; padding: 4px; height: 62px; }
+        .card-name { font-size: 0.55em; font-weight: bold; text-align: center; color: #ffd700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-abilities { display: flex; gap: 2px; justify-content: center; font-size: 0.7em; margin: 2px 0; }
+        .card-stats { display: flex; justify-content: space-between; padding: 0 6px; margin-top: 3px; }
+        .stat { font-size: 0.85em; font-weight: bold; padding: 2px 8px; border-radius: 3px; }
         .stat-atk { background: linear-gradient(135deg, #c0392b, #8e2222); }
         .stat-hp { background: linear-gradient(135deg, #27ae60, #1a7a42); }
         .stat-hp.damaged { background: linear-gradient(135deg, #e67e22, #d35400); }
@@ -118,103 +127,36 @@
         .card.spell { border: 3px solid #9b59b6; }
         .card.trap-card { border: 3px solid #e74c3c; }
         .card.just-played { opacity: 0.6; }
-        .card.just-played::after { content: '💤'; position: absolute; top: 4px; right: 4px; font-size: 0.85em; }
-        .card.can-attack { box-shadow: 0 0 12px rgba(231,76,60,0.8); }
-        .card.field-selected { box-shadow: 0 0 20px rgba(52,152,219,0.9); border-color: #3498db !important; }
+        .card.just-played::after { content: '💤'; position: absolute; top: 3px; right: 3px; font-size: 0.75em; }
+        .card.can-attack { box-shadow: 0 0 10px rgba(231,76,60,0.7); }
+        .card.field-selected { box-shadow: 0 0 15px rgba(52,152,219,0.9); border-color: #3498db !important; }
+        .card.unplayable { opacity: 0.3 !important; filter: grayscale(80%); cursor: not-allowed !important; }
         
-        /* UNPLAYABLE - TRANSPARENCY */
-        .card.unplayable { 
-            opacity: 0.35 !important; 
-            filter: grayscale(70%) brightness(0.7); 
-            cursor: not-allowed !important; 
-        }
+        /* MY HAND */
+        .my-hand { position: absolute; bottom: 5px; left: 115px; display: flex; padding: 10px 15px; background: rgba(20,20,40,0.95); border-radius: 10px 10px 0 0; border: 2px solid #5a4a3a; border-bottom: none; max-width: calc(45% - 120px); }
+        .my-hand .card { margin-left: -50px; transition: transform 0.2s, margin 0.2s; }
+        .my-hand .card:first-child { margin-left: 0; }
+        .my-hand .card:hover:not(.unplayable) { transform: translateY(-35px) scale(1.05); z-index: 100; margin-left: 0; margin-right: 8px; }
+        .my-hand .card:hover:not(.unplayable) + .card { margin-left: 0; }
+        .my-hand .card.selected { transform: translateY(-45px) scale(1.08); z-index: 101; box-shadow: 0 0 25px rgba(255,215,0,0.8); margin-left: 0; margin-right: 8px; }
+        .my-hand .card.selected + .card { margin-left: 0; }
         
-        /* MY HAND - OVERLAPPING CARDS */
-        .my-hand { 
-            position: absolute; 
-            bottom: 8px; 
-            left: 120px; 
-            display: flex; 
-            padding: 12px 20px 12px 10px; 
-            background: rgba(20,20,40,0.95); 
-            border-radius: 12px 12px 0 0; 
-            border: 2px solid #5a4a3a; 
-            border-bottom: none; 
-            max-width: calc(55% - 130px);
-        }
-        .my-hand .card {
-            margin-left: -55px;
-            transition: transform 0.2s, z-index 0s, margin 0.2s;
-        }
-        .my-hand .card:first-child {
-            margin-left: 0;
-        }
-        .my-hand .card:hover:not(.unplayable) {
-            transform: translateY(-40px) scale(1.05);
-            z-index: 100;
-            margin-left: 0;
-            margin-right: 10px;
-        }
-        .my-hand .card:hover:not(.unplayable) + .card {
-            margin-left: 0;
-        }
-        .my-hand .card.selected {
-            transform: translateY(-50px) scale(1.08);
-            z-index: 101;
-            box-shadow: 0 0 30px rgba(255,215,0,0.8);
-            margin-left: 0;
-            margin-right: 10px;
-        }
-        .my-hand .card.selected + .card {
-            margin-left: 0;
-        }
-        
-        /* OPPONENT HAND - VERY COMPACT */
-        .opp-hand { 
-            position: absolute; 
-            bottom: 8px; 
-            right: 120px; 
-            display: flex; 
-            padding: 10px 15px; 
-            background: rgba(20,20,40,0.95); 
-            border-radius: 12px 12px 0 0; 
-            border: 2px solid #5a4a3a; 
-            border-bottom: none; 
-        }
-        .opp-card-back { 
-            width: 35px; 
-            height: 50px; 
-            margin-left: -25px;
-            border-radius: 4px; 
-            background: linear-gradient(135deg, #4a3a2a, #2a2015); 
-            border: 2px solid #8b7355; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 1em; 
-        }
+        /* OPPONENT HAND */
+        .opp-hand { position: absolute; bottom: 5px; right: 115px; display: flex; padding: 8px 12px; background: rgba(20,20,40,0.95); border-radius: 10px 10px 0 0; border: 2px solid #5a4a3a; border-bottom: none; }
+        .opp-card-back { width: 30px; height: 45px; margin-left: -22px; border-radius: 4px; background: linear-gradient(135deg, #4a3a2a, #2a2015); border: 2px solid #8b7355; display: flex; align-items: center; justify-content: center; font-size: 0.8em; }
         .opp-card-back:first-child { margin-left: 0; }
-        .opp-hand-count {
-            position: absolute;
-            bottom: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 0.7em;
-            color: #aaa;
-            white-space: nowrap;
-        }
         
         /* LOG */
-        .log-btn { position: absolute; top: 60px; right: 15px; width: 38px; height: 38px; border-radius: 50%; background: #5a4a3a; border: 2px solid #8b7355; cursor: pointer; font-size: 1.1em; display: flex; align-items: center; justify-content: center; }
-        .log-popup { position: absolute; top: 105px; right: 15px; width: 280px; max-height: 280px; background: rgba(20,20,40,0.98); border: 2px solid #8b7355; border-radius: 10px; padding: 10px; display: none; z-index: 100; }
+        .log-btn { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); padding: 6px 15px; background: rgba(60,50,40,0.9); border: 2px solid #8b7355; border-radius: 15px; cursor: pointer; font-size: 0.75em; }
+        .log-popup { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); width: 350px; max-height: 250px; background: rgba(20,20,40,0.98); border: 2px solid #8b7355; border-radius: 10px; padding: 10px; display: none; z-index: 100; }
         .log-popup.active { display: block; }
-        .log-popup h3 { color: #ffd700; margin-bottom: 8px; font-size: 0.85em; text-align: center; }
-        .log-content { max-height: 220px; overflow-y: auto; font-size: 0.7em; }
+        .log-popup h3 { color: #ffd700; margin-bottom: 6px; font-size: 0.8em; text-align: center; }
+        .log-content { max-height: 200px; overflow-y: auto; font-size: 0.65em; }
         .log-entry { padding: 3px 6px; margin: 2px 0; border-radius: 3px; }
         .log-phase { background: rgba(255,215,0,0.2); color: #ffd700; }
         .log-action { background: rgba(52,152,219,0.2); color: #5dade2; }
         .log-damage { background: rgba(231,76,60,0.2); color: #ec7063; }
-        .log-heal { background: rgba(46,204,113,0.2); color: #58d68d; }
+        .log-trap { background: rgba(155,89,182,0.2); color: #bb8fce; }
         
         /* GAME OVER */
         .game-over { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; }
@@ -247,64 +189,74 @@
     <div class="game-container" id="game-container">
         <div class="top-bar">
             <div class="player-info-bar">
-                <div class="player-name me" id="me-name">ARCHIMAGE</div>
-                <div class="energy-orb" id="me-energy">1</div>
+                <div class="rank-badge">Rang</div>
+                <div class="player-name me" id="me-name">Joueur 1</div>
             </div>
             <div class="player-info-bar">
-                <div class="energy-orb" id="opp-energy">1</div>
-                <div class="player-name opp" id="opp-name">GUERRIER</div>
+                <div class="player-name opp" id="opp-name">Joueur 2</div>
+                <div class="rank-badge">Rang</div>
+                <div class="options-btn">⚙️</div>
             </div>
         </div>
         
         <button class="end-turn-btn" id="end-turn-btn" onclick="endTurn()">
-            <span>FIN DU</span><span>TOUR</span><span class="timer-text" id="timer">90</span>
+            <span id="energy-text">1/1</span>
+            <span>Fin du tour</span>
+            <span class="timer-text" id="timer">90</span>
         </button>
         
-        <div class="phase-indicator deploy" id="phase-indicator">🎴 Phase de Déploiement</div>
+        <div class="phase-indicator deploy" id="phase-indicator">🔄 Phase de Redéploiement</div>
         
-        <div class="hero-zone me">
+        <!-- Left Panel - Player 1 -->
+        <div class="side-panel left">
             <div class="hero-card">
                 <div class="ready-dot" id="me-ready"></div>
+                <div class="hero-label">Hero</div>
                 <div class="hero-icon" id="me-icon">🧙‍♂️</div>
-                <div class="hero-name" id="me-hero">Archimage</div>
                 <div class="hero-hp" id="me-hp">20</div>
             </div>
-            <div class="deck-pile">
-                <div class="deck-card-back">🎴</div>
-                <div class="deck-card-back">🎴</div>
-                <div class="deck-card-back">🎴</div>
+            <div class="deck-grave-row">
+                <div class="deck-box">
+                    <div class="deck-icon">🎴</div>
+                    <span id="me-deck">53</span>
+                </div>
+                <div class="grave-box">
+                    <span>☠️</span>
+                    <span id="me-grave">0</span>
+                </div>
             </div>
-            <div class="deck-count"><span id="me-deck">53</span> cartes</div>
         </div>
         
-        <div class="hero-zone opp">
+        <!-- Right Panel - Player 2 -->
+        <div class="side-panel right">
             <div class="hero-card">
                 <div class="ready-dot" id="opp-ready"></div>
+                <div class="hero-label">Hero</div>
                 <div class="hero-icon" id="opp-icon">⚔️</div>
-                <div class="hero-name" id="opp-hero">Guerrier</div>
                 <div class="hero-hp" id="opp-hp">20</div>
             </div>
-            <div class="deck-pile">
-                <div class="deck-card-back">🎴</div>
-                <div class="deck-card-back">🎴</div>
-                <div class="deck-card-back">🎴</div>
+            <div class="deck-grave-row">
+                <div class="deck-box">
+                    <div class="deck-icon">🎴</div>
+                    <span id="opp-deck">53</span>
+                </div>
+                <div class="grave-box">
+                    <span>☠️</span>
+                    <span id="opp-grave">0</span>
+                </div>
             </div>
-            <div class="deck-count"><span id="opp-deck">53</span> cartes</div>
         </div>
         
-        <div class="battlefield">
-            <div class="bf-side me" id="bf-me"></div>
-            <div class="trap-col" id="traps-me"></div>
-            <div class="trap-col" id="traps-opp"></div>
-            <div class="bf-side opp" id="bf-opp"></div>
+        <div class="battlefield" id="battlefield">
+            <!-- Built by JS -->
         </div>
         
         <div class="my-hand" id="my-hand"></div>
         <div class="opp-hand" id="opp-hand"></div>
         
-        <div class="log-btn" onclick="toggleLog()">📜</div>
+        <div class="log-btn" onclick="toggleLog()">📜 Journal de bataille</div>
         <div class="log-popup" id="log-popup">
-            <h3>📜 Journal</h3>
+            <h3>📜 Journal de Bataille</h3>
             <div class="log-content" id="log-content"></div>
         </div>
     </div>
@@ -320,9 +272,16 @@
     <script>
         let socket, myNum = 0, state = null;
         let selected = null, dragged = null, targeting = false;
-        let currentPhase = 'deploy';
-        let hasCreatures = false;
         let isMyTurnReady = false;
+        let inDeployPhase = false;
+        
+        // Slot names: row 0-3, col 0=back (A,C,E,G), col 1=front (B,D,F,H)
+        const SLOT_NAMES = [
+            ['A', 'B'],
+            ['C', 'D'],
+            ['E', 'F'],
+            ['G', 'H']
+        ];
         
         function initSocket() {
             socket = io();
@@ -331,10 +290,11 @@
                 state = s;
                 myNum = s.myPlayer;
                 isMyTurnReady = false;
+                inDeployPhase = false;
                 setupHeroes();
                 document.getElementById('lobby').classList.add('hidden');
                 document.getElementById('game-container').classList.add('active');
-                initBattlefield();
+                buildBattlefield();
                 render();
                 updatePhaseDisplay();
                 log('🎮 Tour 1 - Partie lancée !', 'phase');
@@ -342,9 +302,10 @@
             
             socket.on('gameStateUpdate', (s) => { 
                 state = s;
-                // Update ready state from server
                 isMyTurnReady = state.me.ready;
-                render(); 
+                inDeployPhase = state.me.inDeployPhase;
+                render();
+                updatePhaseDisplay();
             });
             
             socket.on('timerUpdate', (t) => { 
@@ -354,11 +315,7 @@
             
             socket.on('phaseChange', (p) => { 
                 if(state) state.phase = p; 
-                if (p === 'resolution') {
-                    setPhaseDisplay('resolution');
-                } else if (p === 'planning') {
-                    checkCreaturesAndSetPhase();
-                }
+                updatePhaseDisplay();
             });
             
             socket.on('playerReady', (n) => { 
@@ -373,26 +330,19 @@
             });
             
             socket.on('newTurn', (d) => {
-                console.log('NEW TURN:', d);
-                
-                // Reset all ready states
                 isMyTurnReady = false;
+                inDeployPhase = false;
                 
                 document.getElementById('me-ready').classList.remove('ready');
                 document.getElementById('opp-ready').classList.remove('ready');
                 document.getElementById('me-ready').textContent = '';
                 document.getElementById('opp-ready').textContent = '';
                 
-                // Reset button
                 const btn = document.getElementById('end-turn-btn');
                 btn.classList.remove('waiting');
                 btn.disabled = false;
-                btn.innerHTML = '<span>FIN DU</span><span>TOUR</span><span class="timer-text" id="timer">90</span>';
                 
-                // Update phase
-                currentPhase = 'deploy';
-                setPhaseDisplay('deploy');
-                
+                updatePhaseDisplay();
                 log(`🎮 Tour ${d.turn} — ⚡${d.maxEnergy} énergie`, 'phase');
             });
             
@@ -414,50 +364,19 @@
             socket.on('playerDisconnected', () => log('⚠️ Adversaire déconnecté', 'damage'));
         }
         
-        function checkCreaturesAndSetPhase() {
-            if (!state) return;
-            
-            let creatureCount = 0;
-            for (let r = 0; r < 4; r++) {
-                for (let c = 0; c < 2; c++) {
-                    if (state.me.field[r][c]) creatureCount++;
-                }
-            }
-            
-            hasCreatures = creatureCount > 0;
-            currentPhase = hasCreatures ? 'redeploy' : 'deploy';
-            updatePhaseDisplay();
-        }
-        
-        function setPhaseDisplay(phase) {
+        function updatePhaseDisplay() {
             const el = document.getElementById('phase-indicator');
             el.classList.remove('redeploy', 'deploy', 'resolution');
             
-            if (phase === 'redeploy') {
-                el.textContent = '🔄 Phase de Redéploiement';
-                el.classList.add('redeploy');
-            } else if (phase === 'deploy') {
-                el.textContent = '🎴 Phase de Déploiement';
-                el.classList.add('deploy');
-            } else if (phase === 'resolution') {
+            if (state?.phase === 'resolution') {
                 el.textContent = '⚔️ Résolution du Combat';
                 el.classList.add('resolution');
-            }
-        }
-        
-        function updatePhaseDisplay() {
-            if (state && state.phase === 'resolution') {
-                setPhaseDisplay('resolution');
+            } else if (inDeployPhase) {
+                el.textContent = '🎴 Phase de Déploiement';
+                el.classList.add('deploy');
             } else {
-                setPhaseDisplay(currentPhase);
-            }
-        }
-        
-        function switchToDeployPhase() {
-            if (currentPhase === 'redeploy') {
-                currentPhase = 'deploy';
-                updatePhaseDisplay();
-                log('→ Phase de Déploiement', 'action');
+                el.textContent = '🔄 Phase de Redéploiement';
+                el.classList.add('redeploy');
             }
         }
         
@@ -465,25 +384,20 @@
             const btn = document.getElementById('end-turn-btn');
             if (isMyTurnReady) {
                 btn.classList.add('waiting');
-                btn.innerHTML = '<span>EN</span><span>ATTENTE</span><span class="timer-text" id="timer">' + (state?.timeLeft || 90) + '</span>';
             }
         }
         
         function setupHeroes() {
             if (myNum === 1) {
+                document.getElementById('me-name').textContent = 'Joueur 1 (Vous)';
+                document.getElementById('opp-name').textContent = 'Joueur 2';
                 document.getElementById('me-icon').textContent = '🧙‍♂️';
-                document.getElementById('me-hero').textContent = 'Archimage';
-                document.getElementById('me-name').textContent = 'ARCHIMAGE (Vous)';
                 document.getElementById('opp-icon').textContent = '⚔️';
-                document.getElementById('opp-hero').textContent = 'Guerrier';
-                document.getElementById('opp-name').textContent = 'GUERRIER';
             } else {
+                document.getElementById('me-name').textContent = 'Joueur 2 (Vous)';
+                document.getElementById('opp-name').textContent = 'Joueur 1';
                 document.getElementById('me-icon').textContent = '⚔️';
-                document.getElementById('me-hero').textContent = 'Guerrier';
-                document.getElementById('me-name').textContent = 'GUERRIER (Vous)';
                 document.getElementById('opp-icon').textContent = '🧙‍♂️';
-                document.getElementById('opp-hero').textContent = 'Archimage';
-                document.getElementById('opp-name').textContent = 'ARCHIMAGE';
             }
         }
         
@@ -507,59 +421,173 @@
             });
         }
         
-        function initBattlefield() {
-            const bfMe = document.getElementById('bf-me');
-            const bfOpp = document.getElementById('bf-opp');
-            bfMe.innerHTML = ''; bfOpp.innerHTML = '';
+        function buildBattlefield() {
+            const bf = document.getElementById('battlefield');
+            bf.innerHTML = '';
             
-            // My side: col1 (back) on left, col0 (front) on right
-            for (let col = 1; col >= 0; col--)
-                for (let row = 0; row < 4; row++)
-                    bfMe.appendChild(makeSlot('me', row, col));
-            
-            // Opponent side: MIRRORED - col0 (front) on left, col1 (back) on right
-            // This makes opponent's front face my front
-            for (let col = 0; col <= 1; col++)
-                for (let row = 0; row < 4; row++)
-                    bfOpp.appendChild(makeSlot('opp', row, col));
-            
-            const tMe = document.getElementById('traps-me');
-            const tOpp = document.getElementById('traps-opp');
-            tMe.innerHTML = ''; tOpp.innerHTML = '';
-            for (let i = 0; i < 4; i++) {
-                tMe.appendChild(makeTrap('me', i));
-                tOpp.appendChild(makeTrap('opp', i));
+            // My side
+            const myField = document.createElement('div');
+            myField.className = 'field-side';
+            myField.id = 'field-me';
+            for (let row = 0; row < 4; row++) {
+                // Col 0 (back - A,C,E,G)
+                myField.appendChild(makeSlot('me', row, 0));
+                // Col 1 (front - B,D,F,H)
+                myField.appendChild(makeSlot('me', row, 1));
             }
+            bf.appendChild(myField);
+            
+            // Traps center
+            const trapCenter = document.createElement('div');
+            trapCenter.className = 'trap-center';
+            
+            const myTraps = document.createElement('div');
+            myTraps.className = 'trap-col';
+            for (let i = 0; i < 4; i++) myTraps.appendChild(makeTrapSlot('me', i));
+            
+            const oppTraps = document.createElement('div');
+            oppTraps.className = 'trap-col';
+            for (let i = 0; i < 4; i++) oppTraps.appendChild(makeTrapSlot('opp', i));
+            
+            trapCenter.appendChild(myTraps);
+            trapCenter.appendChild(oppTraps);
+            bf.appendChild(trapCenter);
+            
+            // Opponent side (mirrored: col 1 first, then col 0)
+            const oppField = document.createElement('div');
+            oppField.className = 'field-side';
+            oppField.id = 'field-opp';
+            for (let row = 0; row < 4; row++) {
+                // Col 1 first (front on left side of opp field)
+                oppField.appendChild(makeSlot('opp', row, 1));
+                // Col 0 (back on right side of opp field)
+                oppField.appendChild(makeSlot('opp', row, 0));
+            }
+            bf.appendChild(oppField);
         }
         
         function makeSlot(owner, row, col) {
             const el = document.createElement('div');
+            const suffix = owner === 'me' ? '1' : '2';
+            const label = SLOT_NAMES[row][col] + suffix;
+            
             el.className = `card-slot ${owner}-slot`;
             el.dataset.owner = owner;
             el.dataset.row = row;
             el.dataset.col = col;
+            el.innerHTML = `<span class="slot-label">${label}</span>`;
+            
             el.onclick = () => clickSlot(owner, row, col);
-            el.ondragover = (e) => { e.preventDefault(); if (canPlay()) el.classList.add('drag-over'); };
+            el.ondragover = (e) => { 
+                e.preventDefault(); 
+                if (el.classList.contains('valid-target')) {
+                    el.classList.add('drag-over');
+                }
+            };
             el.ondragleave = () => el.classList.remove('drag-over');
-            el.ondrop = (e) => { e.preventDefault(); el.classList.remove('drag-over'); dropOnSlot(owner, row, col); };
+            el.ondrop = (e) => { 
+                e.preventDefault(); 
+                el.classList.remove('drag-over'); 
+                if (el.classList.contains('valid-target')) {
+                    dropOnSlot(owner, row, col); 
+                }
+            };
             return el;
         }
         
-        function makeTrap(owner, idx) {
+        function makeTrapSlot(owner, row) {
             const el = document.createElement('div');
-            el.className = `trap-slot ${owner}-trap`;
-            el.innerHTML = '<span class="trap-inner">◇</span>';
+            el.className = 'trap-slot';
             el.dataset.owner = owner;
-            el.dataset.idx = idx;
-            el.onclick = () => clickTrap(owner, idx);
-            el.ondragover = (e) => { e.preventDefault(); if(owner === 'me' && canPlay()) el.classList.add('drag-over'); };
+            el.dataset.row = row;
+            el.textContent = 'Piège';
+            el.style.fontSize = '0.5em';
+            
+            el.onclick = () => clickTrap(owner, row);
+            el.ondragover = (e) => { 
+                e.preventDefault(); 
+                if (el.classList.contains('valid-target')) {
+                    el.classList.add('drag-over');
+                }
+            };
             el.ondragleave = () => el.classList.remove('drag-over');
-            el.ondrop = (e) => { e.preventDefault(); el.classList.remove('drag-over'); dropOnTrap(owner, idx); };
+            el.ondrop = (e) => { 
+                e.preventDefault(); 
+                el.classList.remove('drag-over'); 
+                if (el.classList.contains('valid-target')) {
+                    dropOnTrap(owner, row); 
+                }
+            };
             return el;
         }
         
         function canPlay() {
             return state && state.phase === 'planning' && !isMyTurnReady;
+        }
+        
+        // Check if a creature can be placed at a position
+        function canPlaceAt(card, col) {
+            if (!card || card.type !== 'creature') return false;
+            const shooter = card.abilities?.includes('shooter');
+            const fly = card.abilities?.includes('fly');
+            
+            if (fly) return true;
+            if (shooter) return col === 0; // Back only
+            return col === 1; // Front only
+        }
+        
+        // Get valid slots for a card
+        function getValidSlots(card) {
+            const valid = [];
+            if (!card) return valid;
+            
+            if (card.type === 'creature') {
+                for (let row = 0; row < 4; row++) {
+                    for (let col = 0; col < 2; col++) {
+                        if (canPlaceAt(card, col) && !state.me.field[row][col]) {
+                            valid.push({ row, col });
+                        }
+                    }
+                }
+            } else if (card.type === 'trap') {
+                for (let row = 0; row < 4; row++) {
+                    if (!state.me.traps[row]) {
+                        valid.push({ trap: true, row });
+                    }
+                }
+            } else if (card.type === 'spell') {
+                // Can target any creature
+                for (let row = 0; row < 4; row++) {
+                    for (let col = 0; col < 2; col++) {
+                        if (state.me.field[row][col]) valid.push({ owner: 'me', row, col });
+                        if (state.opponent.field[row][col]) valid.push({ owner: 'opp', row, col });
+                    }
+                }
+            }
+            return valid;
+        }
+        
+        function highlightValidSlots(card) {
+            clearHighlights();
+            if (!card || card.cost > state.me.energy) return;
+            
+            const valid = getValidSlots(card);
+            valid.forEach(v => {
+                if (v.trap) {
+                    const slot = document.querySelector(`.trap-slot[data-owner="me"][data-row="${v.row}"]`);
+                    if (slot) slot.classList.add('valid-target');
+                } else {
+                    const owner = v.owner || 'me';
+                    const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${v.row}"][data-col="${v.col}"]`);
+                    if (slot) slot.classList.add('valid-target');
+                }
+            });
+        }
+        
+        function clearHighlights() {
+            document.querySelectorAll('.card-slot, .trap-slot').forEach(s => {
+                s.classList.remove('valid-target', 'drag-over', 'moveable', 'targetable');
+            });
         }
         
         function render() {
@@ -568,10 +596,11 @@
             
             document.getElementById('me-hp').textContent = me.hp;
             document.getElementById('opp-hp').textContent = opp.hp;
-            document.getElementById('me-energy').textContent = `${me.energy}/${me.maxEnergy}`;
-            document.getElementById('opp-energy').textContent = `${opp.energy}/${opp.maxEnergy}`;
+            document.getElementById('energy-text').textContent = `${me.energy}/${me.maxEnergy}`;
             document.getElementById('me-deck').textContent = me.deckCount;
             document.getElementById('opp-deck').textContent = opp.deckCount;
+            document.getElementById('me-grave').textContent = me.graveyardCount || 0;
+            document.getElementById('opp-grave').textContent = opp.graveyardCount || 0;
             
             renderField('me', me.field);
             renderField('opp', opp.field);
@@ -580,10 +609,6 @@
             renderHand(me.hand, me.energy);
             renderOppHand(opp.handCount);
             
-            // Check creatures for phase
-            checkCreaturesAndSetPhase();
-            
-            // Update ready indicators from state
             if (me.ready) {
                 document.getElementById('me-ready').classList.add('ready');
                 document.getElementById('me-ready').textContent = '✓';
@@ -601,8 +626,13 @@
                 for (let c = 0; c < 2; c++) {
                     const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${r}"][data-col="${c}"]`);
                     if (!slot) continue;
-                    slot.querySelector('.card')?.remove();
-                    slot.classList.remove('has-card', 'moveable');
+                    
+                    // Keep the label
+                    const label = slot.querySelector('.slot-label');
+                    slot.innerHTML = '';
+                    if (label) slot.appendChild(label.cloneNode(true));
+                    
+                    slot.classList.remove('has-card');
                     const card = field[r][c];
                     if (card) {
                         slot.classList.add('has-card');
@@ -619,16 +649,19 @@
         function renderTraps(owner, data) {
             if (owner === 'me') {
                 data.forEach((trap, i) => {
-                    const slot = document.querySelector(`.trap-slot[data-owner="me"][data-idx="${i}"]`);
+                    const slot = document.querySelector(`.trap-slot[data-owner="me"][data-row="${i}"]`);
                     if (slot) {
                         slot.classList.toggle('has-trap', !!trap);
-                        slot.querySelector('.trap-inner').textContent = trap ? '💣' : '◇';
+                        slot.textContent = trap ? '💣' : 'Piège';
+                        slot.style.fontSize = trap ? '1.2em' : '0.5em';
                     }
                 });
             } else {
                 document.querySelectorAll('.trap-slot[data-owner="opp"]').forEach((slot, i) => {
-                    slot.classList.toggle('has-trap', i < data);
-                    slot.querySelector('.trap-inner').textContent = i < data ? '❓' : '◇';
+                    const hasTrap = i < data;
+                    slot.classList.toggle('has-trap', hasTrap);
+                    slot.textContent = hasTrap ? '❓' : 'Piège';
+                    slot.style.fontSize = hasTrap ? '1.2em' : '0.5em';
                 });
             }
         }
@@ -640,7 +673,6 @@
                 const el = makeCard(card, true);
                 el.dataset.idx = i;
                 
-                // Mark unplayable cards
                 if (card.cost > energy) {
                     el.classList.add('unplayable');
                     el.draggable = false;
@@ -649,20 +681,17 @@
                 }
                 
                 el.onclick = (e) => { e.stopPropagation(); selectCard(i); };
+                
                 el.ondragstart = (e) => {
                     if (card.cost > energy || !canPlay()) { e.preventDefault(); return; }
                     dragged = { ...card, idx: i };
                     el.classList.add('dragging');
-                    if (card.type === 'spell') {
-                        targeting = true;
-                        document.querySelectorAll('.card-slot').forEach(s => s.classList.add('targetable'));
-                    }
+                    highlightValidSlots(card);
                 };
                 el.ondragend = () => {
                     el.classList.remove('dragging');
                     dragged = null;
-                    targeting = false;
-                    document.querySelectorAll('.card-slot, .trap-slot').forEach(s => s.classList.remove('targetable', 'drag-over'));
+                    clearHighlights();
                 };
                 
                 panel.appendChild(el);
@@ -672,16 +701,12 @@
         function renderOppHand(count) {
             const panel = document.getElementById('opp-hand');
             panel.innerHTML = '';
-            for (let i = 0; i < Math.min(count, 15); i++) {
+            for (let i = 0; i < Math.min(count, 12); i++) {
                 const el = document.createElement('div');
                 el.className = 'opp-card-back';
                 el.textContent = '🎴';
                 panel.appendChild(el);
             }
-            const countEl = document.createElement('div');
-            countEl.className = 'opp-hand-count';
-            countEl.textContent = count + ' cartes';
-            panel.appendChild(countEl);
         }
         
         function makeCard(card, inHand) {
@@ -703,7 +728,7 @@
                 <div class="card-art">${card.icon || '❓'}</div>
                 <div class="card-body">
                     <div class="card-name">${card.name}</div>
-                    <div class="card-abilities">${abilities || (card.type === 'spell' ? (card.offensive ? '⚔️' : '🛡️') : '')}</div>
+                    <div class="card-abilities">${abilities || (card.type === 'spell' ? (card.offensive ? '⚔️' : '💚') : '')}</div>
                     <div class="card-stats">
                         ${card.atk !== undefined ? `<span class="stat stat-atk">${card.atk}</span>` : ''}
                         ${card.damage ? `<span class="stat stat-atk">${card.damage}</span>` : ''}
@@ -723,16 +748,12 @@
             clearSel();
             selected = { ...card, idx: i, fromHand: true };
             document.querySelectorAll('.my-hand .card')[i]?.classList.add('selected');
-            
-            if (card.type === 'spell') {
-                targeting = true;
-                document.querySelectorAll('.card-slot').forEach(s => s.classList.add('targetable'));
-            }
+            highlightValidSlots(card);
         }
         
         function clickFieldCard(row, col, card) {
             if (!canPlay()) return;
-            if (currentPhase !== 'redeploy') return;
+            if (inDeployPhase) return; // Cannot redeploy after playing a card
             if (card.movedThisTurn) return;
             
             clearSel();
@@ -746,40 +767,30 @@
         }
         
         function highlightMoveTargets(fromRow, fromCol, card) {
-            const fly = card.abilities?.includes('fly');
-            const shooter = card.abilities?.includes('shooter');
+            clearHighlights();
             
-            for (let r = 0; r < 4; r++) {
-                for (let c = 0; c < 2; c++) {
-                    if (r === fromRow && c === fromCol) continue;
-                    if (state.me.field[r][c]) continue;
-                    
-                    const rd = Math.abs(r - fromRow);
-                    const cd = Math.abs(c - fromCol);
-                    
-                    // Only adjacent movement
-                    if (!((rd === 1 && cd === 0) || (rd === 0 && cd === 1 && fly))) continue;
-                    
-                    // Check position restrictions
-                    const toBack = c === 1;
-                    if (toBack && !fly && !shooter) continue;
-                    if (c === 0 && shooter && !fly) continue;
-                    
-                    const slot = document.querySelector(`.card-slot[data-owner="me"][data-row="${r}"][data-col="${c}"]`);
-                    if (slot) slot.classList.add('moveable');
-                }
-            }
+            // Only vertical movement (row ±1, same col)
+            const moves = [fromRow - 1, fromRow + 1];
+            moves.forEach(toRow => {
+                if (toRow < 0 || toRow > 3) return;
+                if (state.me.field[toRow][fromCol]) return; // Occupied
+                
+                const slot = document.querySelector(`.card-slot[data-owner="me"][data-row="${toRow}"][data-col="${fromCol}"]`);
+                if (slot) slot.classList.add('moveable');
+            });
         }
         
         function clickSlot(owner, row, col) {
             if (!canPlay()) return;
             
             // Spell targeting
-            if (targeting && selected && selected.fromHand) {
+            if (selected && selected.fromHand && selected.type === 'spell') {
                 const targetPlayer = owner === 'me' ? myNum : (myNum === 1 ? 2 : 1);
-                socket.emit('castSpell', { handIndex: selected.idx, targetPlayer, row, col });
-                switchToDeployPhase();
-                clearSel();
+                const target = owner === 'me' ? state.me.field[row][col] : state.opponent.field[row][col];
+                if (target) {
+                    socket.emit('castSpell', { handIndex: selected.idx, targetPlayer, row, col });
+                    clearSel();
+                }
                 return;
             }
             
@@ -787,9 +798,10 @@
             
             // Place creature from hand
             if (selected && selected.fromHand && selected.type === 'creature') {
-                socket.emit('placeCard', { handIndex: selected.idx, row, col });
-                switchToDeployPhase();
-                clearSel();
+                if (canPlaceAt(selected, col) && !state.me.field[row][col]) {
+                    socket.emit('placeCard', { handIndex: selected.idx, row, col });
+                    clearSel();
+                }
                 return;
             }
             
@@ -803,19 +815,20 @@
                 }
             }
             
-            // Click on a creature to select it for movement
+            // Click on own creature to select for movement
             const card = state.me.field[row][col];
-            if (card && currentPhase === 'redeploy' && !card.movedThisTurn) {
+            if (card && !inDeployPhase && !card.movedThisTurn) {
                 clickFieldCard(row, col, card);
             }
         }
         
-        function clickTrap(owner, idx) {
+        function clickTrap(owner, row) {
             if (!canPlay() || owner !== 'me') return;
             if (selected && selected.fromHand && selected.type === 'trap') {
-                socket.emit('placeTrap', { handIndex: selected.idx, trapIndex: idx });
-                switchToDeployPhase();
-                clearSel();
+                if (!state.me.traps[row]) {
+                    socket.emit('placeTrap', { handIndex: selected.idx, trapIndex: row });
+                    clearSel();
+                }
             }
         }
         
@@ -824,20 +837,22 @@
             
             if (dragged.type === 'spell') {
                 const targetPlayer = owner === 'me' ? myNum : (myNum === 1 ? 2 : 1);
-                socket.emit('castSpell', { handIndex: dragged.idx, targetPlayer, row, col });
-                switchToDeployPhase();
+                const target = owner === 'me' ? state.me.field[row][col] : state.opponent.field[row][col];
+                if (target) {
+                    socket.emit('castSpell', { handIndex: dragged.idx, targetPlayer, row, col });
+                }
             } else if (dragged.type === 'creature' && owner === 'me') {
-                socket.emit('placeCard', { handIndex: dragged.idx, row, col });
-                switchToDeployPhase();
+                if (canPlaceAt(dragged, col) && !state.me.field[row][col]) {
+                    socket.emit('placeCard', { handIndex: dragged.idx, row, col });
+                }
             }
             clearSel();
         }
         
-        function dropOnTrap(owner, idx) {
+        function dropOnTrap(owner, row) {
             if (!dragged || !canPlay() || owner !== 'me') return;
-            if (dragged.type === 'trap') {
-                socket.emit('placeTrap', { handIndex: dragged.idx, trapIndex: idx });
-                switchToDeployPhase();
+            if (dragged.type === 'trap' && !state.me.traps[row]) {
+                socket.emit('placeTrap', { handIndex: dragged.idx, trapIndex: row });
             }
             clearSel();
         }
@@ -852,8 +867,7 @@
             dragged = null;
             targeting = false;
             document.querySelectorAll('.card').forEach(e => e.classList.remove('selected', 'field-selected'));
-            document.querySelectorAll('.card-slot').forEach(e => e.classList.remove('targetable', 'drag-over', 'moveable'));
-            document.querySelectorAll('.trap-slot').forEach(e => e.classList.remove('drag-over'));
+            clearHighlights();
         }
         
         function toggleLog() {
