@@ -695,17 +695,18 @@
             const owner = data.player === myNum ? 'me' : 'opp';
             const slotKey = `${owner}-${data.row}-${data.col}`;
             
-            // Marquer le slot comme en animation
+            // Bloquer le slot IMMÉDIATEMENT
             animatingSlots.add(slotKey);
             
-            // Trouver le slot cible pour sa position
+            // Trouver le slot cible
             const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
             if (!slot) return;
             
-            // Vider le slot (au cas où render() aurait déjà mis quelque chose)
+            // Vider le slot immédiatement (au cas où render() aurait déjà mis quelque chose)
             const label = slot.querySelector('.slot-label');
             slot.innerHTML = '';
             if (label) slot.appendChild(label.cloneNode(true));
+            slot.classList.remove('has-card');
             
             const rect = slot.getBoundingClientRect();
             
@@ -738,16 +739,28 @@
         function animateMove(data) {
             const owner = data.player === myNum ? 'me' : 'opp';
             
+            // Bloquer les deux slots (origine et destination)
+            const fromKey = `${owner}-${data.fromRow}-${data.fromCol}`;
+            const toKey = `${owner}-${data.toRow}-${data.toCol}`;
+            animatingSlots.add(fromKey);
+            animatingSlots.add(toKey);
+            
             const fromSlot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.fromRow}"][data-col="${data.fromCol}"]`);
             const toSlot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.toRow}"][data-col="${data.toCol}"]`);
             
             if (!fromSlot || !toSlot) return;
             
+            // Vider le slot d'origine immédiatement
+            const label = fromSlot.querySelector('.slot-label');
+            fromSlot.innerHTML = '';
+            if (label) fromSlot.appendChild(label.cloneNode(true));
+            fromSlot.classList.remove('has-card');
+            
             // Récupérer les positions
             const fromRect = fromSlot.getBoundingClientRect();
             const toRect = toSlot.getBoundingClientRect();
             
-            // Créer une carte pour l'animation (utiliser les données envoyées)
+            // Créer une carte pour l'animation
             const movingCard = makeCard(data.card, false);
             movingCard.classList.add('card-moving');
             movingCard.style.left = fromRect.left + 'px';
@@ -766,6 +779,9 @@
             // Nettoyer après l'animation
             setTimeout(() => {
                 movingCard.remove();
+                animatingSlots.delete(fromKey);
+                animatingSlots.delete(toKey);
+                render();
             }, 550);
         }
         
