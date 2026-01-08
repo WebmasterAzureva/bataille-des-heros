@@ -154,6 +154,38 @@
         .card.healing { animation: healAnim 0.5s ease-out; }
         @keyframes healAnim { 0%, 100% { box-shadow: none; } 50% { box-shadow: 0 0 30px rgba(46,204,113,0.9); } }
         
+        /* Carte affichée lors des sorts/pièges */
+        .card-showcase { 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%) scale(2); 
+            z-index: 2000; 
+            animation: showcaseAnim 1.5s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes showcaseAnim { 
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } 
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(2.2); }
+            70% { opacity: 1; transform: translate(-50%, -50%) scale(2); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); } 
+        }
+        
+        /* Vibration pour carte non jouable */
+        .card.shake { animation: shakeAnim 0.4s ease-out; }
+        @keyframes shakeAnim {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-10px); }
+            40% { transform: translateX(10px); }
+            60% { transform: translateX(-10px); }
+            80% { transform: translateX(10px); }
+        }
+        
+        /* Retour smooth dans la main */
+        .card.returning { 
+            transition: transform 0.3s ease-out, left 0.3s ease-out, top 0.3s ease-out;
+        }
+        
         .attack-projectile { position: fixed; z-index: 1000; font-size: 2em; pointer-events: none; transition: all 0.3s ease-out; }
         
         .spell-effect { position: fixed; z-index: 1000; font-size: 3em; pointer-events: none; animation: spellAnim 0.6s ease-out forwards; }
@@ -551,6 +583,11 @@
         }
         
         function animateSpell(data) {
+            // Afficher la carte du sort
+            if (data.spell) {
+                showCardShowcase(data.spell);
+            }
+            
             const targetOwner = data.targetPlayer === myNum ? 'me' : 'opp';
             const slot = document.querySelector(`.card-slot[data-owner="${targetOwner}"][data-row="${data.row}"][data-col="${data.col}"]`);
             if (slot) {
@@ -601,6 +638,11 @@
         }
         
         function animateTrap(data) {
+            // Afficher la carte du piège
+            if (data.trap) {
+                showCardShowcase(data.trap);
+            }
+            
             const owner = data.player === myNum ? 'me' : 'opp';
             const trapSlot = document.querySelector(`.trap-slot[data-owner="${owner}"][data-row="${data.row}"]`);
             if (trapSlot) {
@@ -624,14 +666,38 @@
             }
             
             const owner = data.player === myNum ? 'me' : 'opp';
+            const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
+            
+            // Attendre que le DOM soit mis à jour puis animer
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const card = slot?.querySelector('.card');
+                    if (card) {
+                        // Forcer l'état initial
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0) translateY(-50px)';
+                        
+                        // Déclencher l'animation après un micro-délai
+                        setTimeout(() => {
+                            card.style.opacity = '';
+                            card.style.transform = '';
+                            card.classList.add('summoning');
+                            setTimeout(() => card.classList.remove('summoning'), 500);
+                        }, 20);
+                    }
+                });
+            });
+        }
+        
+        // Afficher une carte à l'écran (pour sorts et pièges)
+        function showCardShowcase(card) {
+            const cardEl = makeCard(card, false);
+            cardEl.classList.add('card-showcase');
+            document.body.appendChild(cardEl);
+            
             setTimeout(() => {
-                const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
-                const card = slot?.querySelector('.card');
-                if (card) {
-                    card.classList.add('summoning');
-                    setTimeout(() => card.classList.remove('summoning'), 500);
-                }
-            }, 100);
+                cardEl.remove();
+            }, 1500);
         }
         
         function canPlay() {
@@ -863,9 +929,12 @@
             return valid;
         }
         
-        function highlightValidSlots(card) {
+        function highlightValidSlots(card, forceShow = false) {
             clearHighlights();
-            if (!card || card.cost > state.me.energy) return;
+            if (!card) return;
+            // Si la carte est trop chère et qu'on ne force pas l'affichage, ne pas highlight
+            // Mais si on drag, on veut montrer où ça irait (forceShow via le drag)
+            if (card.cost > state.me.energy && !forceShow && !dragged) return;
             
             const valid = getValidSlots(card);
             valid.forEach(v => {
@@ -1026,25 +1095,38 @@
             hand.forEach((card, i) => {
                 const el = makeCard(card, true);
                 el.dataset.idx = i;
+                el.dataset.cost = card.cost;
                 
                 // Z-index incrémental pour éviter les saccades au hover
                 el.style.zIndex = i + 1;
                 
-                // Toujours draggable visuellement, mais le drag sera annulé si pas assez de mana
+                // Toujours draggable
                 el.draggable = true;
                 
                 el.onclick = (e) => { e.stopPropagation(); selectCard(i); };
                 
                 el.ondragstart = (e) => {
-                    // Vérifier le coût en mana au moment du drag
-                    if (card.cost > energy || !canPlay()) { e.preventDefault(); return; }
-                    dragged = { ...card, idx: i };
+                    if (!canPlay()) { e.preventDefault(); return; }
+                    
+                    // Stocker si la carte est trop chère
+                    const tooExpensive = card.cost > energy;
+                    
+                    dragged = { ...card, idx: i, tooExpensive };
                     draggedFromField = null;
                     el.classList.add('dragging');
+                    
+                    // Highlight même si trop cher (pour montrer où ça irait)
                     highlightValidSlots(card);
                 };
-                el.ondragend = () => {
+                el.ondragend = (e) => {
                     el.classList.remove('dragging');
+                    
+                    // Si on a essayé de poser une carte trop chère, faire vibrer
+                    if (dragged && dragged.tooExpensive && dragged.triedToDrop) {
+                        el.classList.add('shake');
+                        setTimeout(() => el.classList.remove('shake'), 400);
+                    }
+                    
                     dragged = null;
                     clearHighlights();
                 };
@@ -1184,6 +1266,12 @@
         function dropOnSlot(owner, row, col) {
             if (!dragged || !canPlay()) return;
             
+            // Si la carte est trop chère, marquer qu'on a essayé et ne rien faire
+            if (dragged.tooExpensive) {
+                dragged.triedToDrop = true;
+                return;
+            }
+            
             if (dragged.type === 'spell') {
                 const targetPlayer = owner === 'me' ? myNum : (myNum === 1 ? 2 : 1);
                 socket.emit('castSpell', { handIndex: dragged.idx, targetPlayer, row, col });
@@ -1197,6 +1285,13 @@
         
         function dropOnTrap(owner, row) {
             if (!dragged || !canPlay() || owner !== 'me') return;
+            
+            // Si la carte est trop chère, marquer qu'on a essayé et ne rien faire
+            if (dragged.tooExpensive) {
+                dragged.triedToDrop = true;
+                return;
+            }
+            
             if (dragged.type === 'trap' && !state.me.traps[row]) {
                 socket.emit('placeTrap', { handIndex: dragged.idx, trapIndex: row });
             }
