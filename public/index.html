@@ -48,8 +48,7 @@
         @keyframes timerPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); color: #ff4444; } }
         
         .energy-display { display: flex; align-items: center; gap: 8px; }
-        .mana-orb { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #7ec8f3, #1e90ff, #0066cc); border: 3px solid #87ceeb; box-shadow: 0 0 15px rgba(30,144,255,0.6); display: flex; align-items: center; justify-content: center; font-size: 1.1em; font-weight: bold; }
-        .energy-text { font-size: 1.2em; color: #87ceeb; font-weight: bold; }
+        .mana-orb { min-width: 40px; height: 36px; padding: 0 12px; border-radius: 18px; background: radial-gradient(circle at 30% 30%, #7ec8f3, #1e90ff, #0066cc); border: 3px solid #87ceeb; box-shadow: 0 0 15px rgba(30,144,255,0.6); display: flex; align-items: center; justify-content: center; font-size: 1em; font-weight: bold; }
         
         .end-turn-btn { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ff6b35, #c41e00); border: 4px solid #ffd700; cursor: pointer; font-size: 0.65em; font-weight: bold; color: white; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
         .end-turn-btn:hover:not(.waiting) { transform: translateX(-50%) scale(1.08); box-shadow: 0 6px 25px rgba(255,107,53,0.5); }
@@ -74,8 +73,6 @@
         .hero-label { font-size: 0.7em; margin-bottom: 5px; color: #ffd700; font-weight: bold; }
         .hero-icon { font-size: 3em; }
         .hero-hp { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); background: radial-gradient(circle at 30% 30%, #e74c3c, #922b21); width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3em; font-weight: bold; border: 3px solid #f5b7b1; box-shadow: 0 3px 10px rgba(0,0,0,0.4); transition: all 0.3s; }
-        .ready-dot { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%; background: #7f8c8d; border: 3px solid white; font-size: 0.5em; display: flex; align-items: center; justify-content: center; }
-        .ready-dot.ready { background: #27ae60; }
         
         .deck-grave-row { display: flex; gap: 8px; margin-top: 15px; }
         .deck-box, .grave-box { width: 90px; height: 120px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7em; }
@@ -238,14 +235,15 @@
             flex-shrink: 0;
             position: relative;
             z-index: 1;
+            transform-origin: bottom center;
         }
         .my-hand .card:first-child { margin-left: 0; }
         .my-hand .card:hover:not(.dragging) { 
-            transform: translateY(-180px) scale(1.4); 
+            transform: translateY(-30px) scale(1.8); 
             z-index: 100 !important;
         }
         .my-hand .card.selected { 
-            transform: translateY(-190px) scale(1.45); 
+            transform: translateY(-35px) scale(1.85); 
             z-index: 101 !important; 
             box-shadow: 0 0 25px rgba(255,215,0,0.8); 
         }
@@ -396,7 +394,6 @@
                 <div class="player-name me" id="me-name">Joueur 1</div>
                 <div class="energy-display">
                     <div class="mana-orb" id="me-energy">1</div>
-                    <span class="energy-text">Mana</span>
                 </div>
             </div>
             <div class="header-center">
@@ -405,7 +402,6 @@
             </div>
             <div class="player-info-bar">
                 <div class="energy-display">
-                    <span class="energy-text">Mana</span>
                     <div class="mana-orb" id="opp-energy">1</div>
                 </div>
                 <div class="player-name opp" id="opp-name">Joueur 2</div>
@@ -415,14 +411,12 @@
         </div>
         
         <button class="end-turn-btn" id="end-turn-btn" onclick="endTurn()">
-            <span style="font-size:1.2em;">⚔️</span>
             <span>FIN DU</span>
             <span>TOUR</span>
         </button>
         
         <div class="side-panel left">
             <div class="hero-card" id="hero-me">
-                <div class="ready-dot" id="me-ready"></div>
                 <div class="hero-label" id="me-hero-name">Aldric</div>
                 <div class="hero-icon" id="me-icon">🧙‍♂️</div>
                 <div class="hero-hp" id="me-hp">20</div>
@@ -443,7 +437,6 @@
         
         <div class="side-panel right">
             <div class="hero-card" id="hero-opp">
-                <div class="ready-dot" id="opp-ready"></div>
                 <div class="hero-label" id="opp-hero-name">Lyra</div>
                 <div class="hero-icon" id="opp-icon">⚔️</div>
                 <div class="hero-hp" id="opp-hp">20</div>
@@ -546,8 +539,6 @@
             
             socket.on('playerReady', (n) => {
                 const isMe = n === myNum;
-                document.getElementById(isMe ? 'me-ready' : 'opp-ready').classList.add('ready');
-                document.getElementById(isMe ? 'me-ready' : 'opp-ready').textContent = '✓';
                 if (isMe) {
                     document.getElementById('end-turn-btn').classList.add('waiting');
                 }
@@ -556,10 +547,6 @@
             
             socket.on('newTurn', (d) => {
                 currentTimer = 90;
-                document.getElementById('me-ready').classList.remove('ready');
-                document.getElementById('opp-ready').classList.remove('ready');
-                document.getElementById('me-ready').textContent = '';
-                document.getElementById('opp-ready').textContent = '';
                 document.getElementById('end-turn-btn').classList.remove('waiting');
                 clearSel();
                 updateTimerDisplay(90);
@@ -1231,13 +1218,7 @@
             renderOppHand(opp.handCount);
             
             if (me.ready) {
-                document.getElementById('me-ready').classList.add('ready');
-                document.getElementById('me-ready').textContent = '✓';
                 document.getElementById('end-turn-btn').classList.add('waiting');
-            }
-            if (opp.ready) {
-                document.getElementById('opp-ready').classList.add('ready');
-                document.getElementById('opp-ready').textContent = '✓';
             }
         }
         
