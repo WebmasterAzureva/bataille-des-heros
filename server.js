@@ -338,16 +338,22 @@ async function startResolution(room) {
     emitStateToBoth(room);
     await sleep(800);
     
-    // 7. PHASE DE COMBAT (rangée par rangée: A, B, C, D)
+    // 7. PHASE DE COMBAT dans l'ordre: A > B > C > D > E > F > G > H
+    // A = row0/col0, B = row0/col1, C = row1/col0, D = row1/col1, etc.
     log('⚔️ Phase de combat', 'phase');
     await sleep(800);
     
+    // D'abord résoudre tous les pièges par rangée
     for (let row = 0; row < 4; row++) {
-        // D'abord résoudre les pièges pour cette rangée
         await processTrapsForRow(room, row, log, sleep);
-        
-        // Ensuite résoudre le combat simultané pour cette rangée
-        await processCombatRow(room, row, log, sleep);
+    }
+    
+    // Ensuite résoudre le combat dans l'ordre des lettres
+    // Ordre: A(r0c0) -> B(r0c1) -> C(r1c0) -> D(r1c1) -> E(r2c0) -> F(r2c1) -> G(r3c0) -> H(r3c1)
+    for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 2; col++) {
+            await processCombatSlot(room, row, col, log, sleep);
+        }
     }
     
     // Mettre à jour les créatures pour le prochain tour
@@ -399,7 +405,8 @@ async function processTrapsForRow(room, row, log, sleep) {
                 const target = findTarget(card, 
                     defenderState.field[row][1], 
                     defenderState.field[row][0], 
-                    defenderPlayer);
+                    defenderPlayer,
+                    row);
                 
                 // Le piège se déclenche si la créature attaque (même le héros)
                 if (target) {
@@ -540,56 +547,50 @@ async function applyAction(room, playerNum, action, log, sleep) {
     // Fonction legacy - non utilisée dans la nouvelle résolution
 }
 
-async function processCombatRow(room, row, log, sleep) {
+// Combat pour un slot spécifique (les deux joueurs au même slot combattent simultanément)
+async function processCombatSlot(room, row, col, log, sleep) {
+    const slotNames = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
+    const slotLetter = slotNames[row][col];
+    
     const p1State = room.gameState.players[1];
     const p2State = room.gameState.players[2];
     
-    // Récupérer toutes les créatures sur cette rangée pour les deux joueurs
-    const p1Front = p1State.field[row][1];
-    const p1Back = p1State.field[row][0];
-    const p2Front = p2State.field[row][1];
-    const p2Back = p2State.field[row][0];
+    const p1Card = p1State.field[row][col];
+    const p2Card = p2State.field[row][col];
     
-    // Collecter les attaques à résoudre
+    // Collecter les attaques de ce slot
     const attacks = [];
     
-    // Pour chaque créature qui peut attaquer, déterminer sa cible
-    const creaturesP1 = [
-        { card: p1Front, col: 1, player: 1 },
-        { card: p1Back, col: 0, player: 1 }
-    ].filter(c => c.card && c.card.canAttack);
-    
-    const creaturesP2 = [
-        { card: p2Front, col: 1, player: 2 },
-        { card: p2Back, col: 0, player: 2 }
-    ].filter(c => c.card && c.card.canAttack);
-    
-    // Déterminer les cibles pour chaque créature du joueur 1
-    for (const attacker of creaturesP1) {
-        const target = findTarget(attacker.card, p2Front, p2Back, 2);
+    // Créature du joueur 1 à ce slot
+    if (p1Card && p1Card.canAttack) {
+        const target = findTarget(p1Card, p2State.field[row][1], p2State.field[row][0], 2, row);
         if (target) {
             attacks.push({
-                attacker: attacker.card,
+                attacker: p1Card,
                 attackerPlayer: 1,
-                attackerCol: attacker.col,
+                attackerRow: row,
+                attackerCol: col,
                 target: target.card,
-                targetPlayer: target.player,
+                targetPlayer: 2,
+                targetRow: target.row !== undefined ? target.row : row,
                 targetCol: target.col,
                 targetIsHero: target.isHero
             });
         }
     }
     
-    // Déterminer les cibles pour chaque créature du joueur 2
-    for (const attacker of creaturesP2) {
-        const target = findTarget(attacker.card, p1Front, p1Back, 1);
+    // Créature du joueur 2 à ce slot
+    if (p2Card && p2Card.canAttack) {
+        const target = findTarget(p2Card, p1State.field[row][1], p1State.field[row][0], 1, row);
         if (target) {
             attacks.push({
-                attacker: attacker.card,
+                attacker: p2Card,
                 attackerPlayer: 2,
-                attackerCol: attacker.col,
+                attackerRow: row,
+                attackerCol: col,
                 target: target.card,
-                targetPlayer: target.player,
+                targetPlayer: 1,
+                targetRow: target.row !== undefined ? target.row : row,
                 targetCol: target.col,
                 targetIsHero: target.isHero
             });
@@ -598,27 +599,26 @@ async function processCombatRow(room, row, log, sleep) {
     
     if (attacks.length === 0) return;
     
-    // Animer toutes les attaques simultanément
+    // Animer les attaques
     for (const atk of attacks) {
         emitAnimation(room, 'attack', {
             attacker: atk.attackerPlayer,
-            row: row,
+            row: atk.attackerRow,
             col: atk.attackerCol,
             targetPlayer: atk.targetPlayer,
-            targetRow: row,
+            targetRow: atk.targetRow,
             targetCol: atk.targetIsHero ? -1 : atk.targetCol,
             isFlying: atk.attacker.abilities.includes('fly'),
             isShooter: atk.attacker.abilities.includes('shooter')
         });
     }
-    await sleep(600);
+    await sleep(500);
     
-    // Calculer tous les dégâts (sans les appliquer encore)
+    // Calculer les dégâts
     const damages = [];
     
     for (const atk of attacks) {
         if (atk.targetIsHero) {
-            // Dégâts au héros
             damages.push({
                 type: 'hero',
                 player: atk.targetPlayer,
@@ -626,30 +626,26 @@ async function processCombatRow(room, row, log, sleep) {
                 attackerName: atk.attacker.name,
                 defenderName: room.gameState.players[atk.targetPlayer].heroName
             });
-        } else {
-            // Dégâts à une créature
+        } else if (atk.target) {
             damages.push({
                 type: 'creature',
                 player: atk.targetPlayer,
-                row: row,
+                row: atk.targetRow,
                 col: atk.targetCol,
                 amount: atk.attacker.atk,
                 attackerName: atk.attacker.name,
                 defenderName: atk.target.name
             });
             
-            // Riposte ?
+            // Riposte si la cible peut attaquer et l'attaquant n'est pas tireur (ou les deux sont tireurs)
             const attackerIsShooter = atk.attacker.abilities.includes('shooter');
             const targetIsShooter = atk.target.abilities?.includes('shooter');
             
-            // Riposte seulement si :
-            // - L'attaquant N'EST PAS un tireur
-            // - OU l'attaquant EST un tireur ET la cible EST aussi un tireur
             if (!attackerIsShooter || (attackerIsShooter && targetIsShooter)) {
                 damages.push({
                     type: 'creature',
                     player: atk.attackerPlayer,
-                    row: row,
+                    row: atk.attackerRow,
                     col: atk.attackerCol,
                     amount: atk.target.atk,
                     attackerName: atk.target.name,
@@ -660,7 +656,7 @@ async function processCombatRow(room, row, log, sleep) {
         }
     }
     
-    // Appliquer tous les dégâts
+    // Appliquer les dégâts
     for (const dmg of damages) {
         if (dmg.type === 'hero') {
             room.gameState.players[dmg.player].hp -= dmg.amount;
@@ -682,27 +678,42 @@ async function processCombatRow(room, row, log, sleep) {
     }
     
     emitStateToBoth(room);
-    await sleep(600);
+    await sleep(400);
     
     // Vérifier les morts
     for (let p = 1; p <= 2; p++) {
-        for (let c = 0; c < 2; c++) {
-            const card = room.gameState.players[p].field[row][c];
-            if (card && card.currentHp <= 0) {
-                room.gameState.players[p].graveyard.push(card);
-                room.gameState.players[p].field[row][c] = null;
-                log(`☠️ ${card.name} détruit!`, 'damage');
-                emitAnimation(room, 'death', { player: p, row: row, col: c });
+        const card = room.gameState.players[p].field[row][col];
+        if (card && card.currentHp <= 0) {
+            room.gameState.players[p].graveyard.push(card);
+            room.gameState.players[p].field[row][col] = null;
+            log(`☠️ ${card.name} détruit!`, 'damage');
+            emitAnimation(room, 'death', { player: p, row: row, col: col });
+        }
+    }
+    
+    // Vérifier aussi les cibles qui ne sont pas au même slot
+    for (const atk of attacks) {
+        if (!atk.targetIsHero && atk.target && (atk.targetRow !== row || atk.targetCol !== col)) {
+            const targetCard = room.gameState.players[atk.targetPlayer].field[atk.targetRow][atk.targetCol];
+            if (targetCard && targetCard.currentHp <= 0) {
+                room.gameState.players[atk.targetPlayer].graveyard.push(targetCard);
+                room.gameState.players[atk.targetPlayer].field[atk.targetRow][atk.targetCol] = null;
+                log(`☠️ ${targetCard.name} détruit!`, 'damage');
+                emitAnimation(room, 'death', { player: atk.targetPlayer, row: atk.targetRow, col: atk.targetCol });
             }
         }
     }
     
     emitStateToBoth(room);
-    await sleep(500);
+    await sleep(300);
+}
+
+async function processCombatRow(room, row, log, sleep) {
+    // Fonction obsolète - gardée pour compatibilité
 }
 
 // Trouver la cible d'une créature
-function findTarget(attacker, enemyFront, enemyBack, enemyPlayer) {
+function findTarget(attacker, enemyFront, enemyBack, enemyPlayer, row) {
     const isFlying = attacker.abilities.includes('fly');
     const isShooter = attacker.abilities.includes('shooter');
     
@@ -710,26 +721,26 @@ function findTarget(attacker, enemyFront, enemyBack, enemyPlayer) {
     if (isFlying) {
         // Cherche un volant adverse à combattre
         if (enemyFront && enemyFront.abilities.includes('fly')) {
-            return { card: enemyFront, col: 1, player: enemyPlayer, isHero: false };
+            return { card: enemyFront, col: 1, row: row, player: enemyPlayer, isHero: false };
         }
         if (enemyBack && enemyBack.abilities.includes('fly')) {
-            return { card: enemyBack, col: 0, player: enemyPlayer, isHero: false };
+            return { card: enemyBack, col: 0, row: row, player: enemyPlayer, isHero: false };
         }
         // Sinon attaque le héros directement
-        return { card: null, col: -1, player: enemyPlayer, isHero: true };
+        return { card: null, col: -1, row: row, player: enemyPlayer, isHero: true };
     }
     
     // CAS 2: Créature TIREUR
     if (isShooter) {
         // Peut attaquer n'importe quelle créature (même volante)
         if (enemyFront) {
-            return { card: enemyFront, col: 1, player: enemyPlayer, isHero: false };
+            return { card: enemyFront, col: 1, row: row, player: enemyPlayer, isHero: false };
         }
         if (enemyBack) {
-            return { card: enemyBack, col: 0, player: enemyPlayer, isHero: false };
+            return { card: enemyBack, col: 0, row: row, player: enemyPlayer, isHero: false };
         }
         // Sinon attaque le héros
-        return { card: null, col: -1, player: enemyPlayer, isHero: true };
+        return { card: null, col: -1, row: row, player: enemyPlayer, isHero: true };
     }
     
     // CAS 3: Créature NORMALE
@@ -739,16 +750,16 @@ function findTarget(attacker, enemyFront, enemyBack, enemyPlayer) {
     
     // Si front existe et n'est PAS volant → attaque front
     if (enemyFront && !frontIsFlying) {
-        return { card: enemyFront, col: 1, player: enemyPlayer, isHero: false };
+        return { card: enemyFront, col: 1, row: row, player: enemyPlayer, isHero: false };
     }
     
     // Si front est volant (ou n'existe pas), cherche le back non-volant
     if (enemyBack && !backIsFlying) {
-        return { card: enemyBack, col: 0, player: enemyPlayer, isHero: false };
+        return { card: enemyBack, col: 0, row: row, player: enemyPlayer, isHero: false };
     }
     
     // Sinon attaque le héros (passe au-dessus des volants ou rangée vide)
-    return { card: null, col: -1, player: enemyPlayer, isHero: true };
+    return { card: null, col: -1, row: row, player: enemyPlayer, isHero: true };
 }
 
 async function processCombat(room, attackerPlayer, row, col, log, sleep) {
@@ -869,8 +880,14 @@ io.on('connection', (socket) => {
         if (!card || card.movedThisTurn) return;
         if (player.field[toRow][toCol]) return;
         
-        if (fromCol !== toCol) return;
-        if (Math.abs(toRow - fromRow) !== 1) return;
+        const isFlying = card.abilities?.includes('fly');
+        const isVerticalMove = (fromCol === toCol && Math.abs(toRow - fromRow) === 1);
+        const isHorizontalMove = (fromRow === toRow && fromCol !== toCol);
+        
+        // Déplacement vertical: toutes les créatures
+        // Déplacement horizontal: seulement les volants
+        if (!isVerticalMove && !(isFlying && isHorizontalMove)) return;
+        
         if (!canPlaceAt(card, toCol)) return;
         
         card.movedThisTurn = true;
