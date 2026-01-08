@@ -224,30 +224,95 @@ async function startResolution(room) {
     
     const log = (msg, type) => io.to(room.code).emit('resolutionLog', { msg, type });
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const slotNames = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
     
     log(`⚔️ RÉSOLUTION DU TOUR ${room.gameState.turn}`, 'phase');
-    await sleep(600);
+    await sleep(1000);
     
-    log('📋 Application des actions...', 'phase');
-    await sleep(400);
+    // Collecter toutes les actions par type
+    const allActions = { moves: [], places: [], spellsDefensive: [], spellsOffensive: [], traps: [] };
     
     for (let p = 1; p <= 2; p++) {
         const player = room.gameState.players[p];
         const actions = player.pendingActions || [];
         
-        if (actions.length > 0) {
-            log(`👤 ${player.heroName} :`, 'action');
-            await sleep(300);
+        for (const action of actions) {
+            action.playerNum = p;
+            action.heroName = player.heroName;
             
-            for (const action of actions) {
-                await applyAction(room, p, action, log, sleep);
+            if (action.type === 'move') allActions.moves.push(action);
+            else if (action.type === 'place') allActions.places.push(action);
+            else if (action.type === 'trap') allActions.traps.push(action);
+            else if (action.type === 'spell') {
+                if (action.spell.offensive) allActions.spellsOffensive.push(action);
+                else allActions.spellsDefensive.push(action);
             }
         }
     }
     
-    emitStateToBoth(room);
-    await sleep(500);
+    // 1. REDÉPLOIEMENTS
+    if (allActions.moves.length > 0) {
+        log('🔄 Redéploiements', 'phase');
+        await sleep(600);
+        
+        for (const action of allActions.moves) {
+            log(`  ↔️ ${action.heroName}: ${action.card.name} ${slotNames[action.fromRow][action.fromCol]} → ${slotNames[action.toRow][action.toCol]}`, 'action');
+            emitAnimation(room, 'move', { player: action.playerNum, fromRow: action.fromRow, fromCol: action.fromCol, toRow: action.toRow, toCol: action.toCol });
+            emitStateToBoth(room);
+            await sleep(800);
+        }
+    }
     
+    // 2. POSES DE CRÉATURES
+    if (allActions.places.length > 0) {
+        log('🎴 Invocations', 'phase');
+        await sleep(600);
+        
+        for (const action of allActions.places) {
+            log(`  🎴 ${action.heroName}: ${action.card.name} en ${slotNames[action.row][action.col]}`, 'action');
+            emitAnimation(room, 'summon', { player: action.playerNum, row: action.row, col: action.col, card: action.card });
+            emitStateToBoth(room);
+            await sleep(800);
+        }
+    }
+    
+    // 3. SORTS DÉFENSIFS (soins)
+    if (allActions.spellsDefensive.length > 0) {
+        log('💚 Sorts de soutien', 'phase');
+        await sleep(600);
+        
+        for (const action of allActions.spellsDefensive) {
+            await applySpell(room, action, log, sleep);
+        }
+    }
+    
+    // 4. SORTS OFFENSIFS
+    if (allActions.spellsOffensive.length > 0) {
+        log('🔥 Sorts offensifs', 'phase');
+        await sleep(600);
+        
+        for (const action of allActions.spellsOffensive) {
+            await applySpell(room, action, log, sleep);
+        }
+    }
+    
+    // 5. POSES DE PIÈGES
+    if (allActions.traps.length > 0) {
+        log('🪤 Pièges posés', 'phase');
+        await sleep(600);
+        
+        for (const action of allActions.traps) {
+            log(`  🪤 ${action.heroName}: Piège en rangée ${action.row + 1}`, 'action');
+            emitAnimation(room, 'trapPlace', { player: action.playerNum, row: action.row });
+            emitStateToBoth(room);
+            await sleep(600);
+        }
+    }
+    
+    emitStateToBoth(room);
+    await sleep(800);
+    
+    // 6. PIOCHE (max 9 cartes en main)
     for (let p = 1; p <= 2; p++) {
         const player = room.gameState.players[p];
         if (player.deck.length > 0) {
@@ -258,23 +323,33 @@ async function startResolution(room) {
                 card.turnsOnField = 0;
                 card.movedThisTurn = false;
             }
-            player.hand.push(card);
+            
+            // Max 9 cartes en main
+            if (player.hand.length >= 9) {
+                player.graveyard.push(card);
+                log(`📦 ${player.heroName} a la main pleine, la carte va au cimetière`, 'damage');
+            } else {
+                player.hand.push(card);
+            }
         }
     }
     log('📦 Les joueurs piochent une carte', 'action');
     emitStateToBoth(room);
-    await sleep(500);
+    await sleep(800);
     
+    // 7. PHASE DE COMBAT (de haut en bas: A, B, C, D, E, F, G, H)
     log('⚔️ Phase de combat', 'phase');
-    await sleep(400);
+    await sleep(800);
     
     for (let row = 0; row < 4; row++) {
+        // D'abord colonne front (1) puis back (0) pour chaque rangée
         for (let col = 1; col >= 0; col--) {
             await processCombat(room, 1, row, col, log, sleep);
             await processCombat(room, 2, row, col, log, sleep);
         }
     }
     
+    // Mettre à jour les créatures pour le prochain tour
     for (let p = 1; p <= 2; p++) {
         for (let r = 0; r < 4; r++) {
             for (let c = 0; c < 2; c++) {
@@ -292,123 +367,104 @@ async function startResolution(room) {
     const p2hp = room.gameState.players[2].hp;
     
     if (p1hp <= 0 || p2hp <= 0) {
-        await sleep(500);
+        await sleep(800);
         const winner = p1hp <= 0 ? 2 : 1;
         log(`🏆 ${room.gameState.players[winner].heroName} GAGNE!`, 'phase');
         io.to(room.code).emit('gameOver', { winner });
         return;
     }
     
-    await sleep(800);
+    await sleep(1000);
     startNewTurn(room);
 }
 
-async function applyAction(room, playerNum, action, log, sleep) {
+// Fonction séparée pour appliquer les sorts
+async function applySpell(room, action, log, sleep) {
     const slotNames = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
+    const playerNum = action.playerNum;
     const player = room.gameState.players[playerNum];
     const opponent = room.gameState.players[playerNum === 1 ? 2 : 1];
+    const spell = action.spell;
     
-    switch (action.type) {
-        case 'place':
-            log(`  🎴 ${action.card.name} posé en ${slotNames[action.row][action.col]}${playerNum}`, 'action');
-            emitAnimation(room, 'summon', { player: playerNum, row: action.row, col: action.col, card: action.card });
-            await sleep(500);
-            break;
+    emitAnimation(room, 'spell', { 
+        caster: playerNum, 
+        targetPlayer: action.targetPlayer, 
+        row: action.row, 
+        col: action.col, 
+        spell: spell 
+    });
+    await sleep(600);
+    
+    if (spell.pattern === 'cross') {
+        const targets = getCrossTargets(action.targetPlayer, action.row, action.col);
+        log(`  ✝️ ${action.heroName}: ${spell.name} en croix depuis ${slotNames[action.row][action.col]}!`, 'damage');
+        
+        for (const t of targets) {
+            const targetField = t.player === playerNum ? player.field : opponent.field;
+            const target = targetField[t.row][t.col];
             
-        case 'move':
-            log(`  ↔️ ${action.card.name} déplacé ${slotNames[action.fromRow][action.fromCol]}${playerNum} → ${slotNames[action.toRow][action.toCol]}${playerNum}`, 'action');
-            await sleep(300);
-            break;
-            
-        case 'trap':
-            log(`  🪤 Piège posé en rangée ${action.row + 1}`, 'action');
-            emitAnimation(room, 'trapPlace', { player: playerNum, row: action.row });
-            await sleep(400);
-            break;
-            
-        case 'spell':
-            const spell = action.spell;
-            
-            // Animation du sort
             emitAnimation(room, 'spell', { 
                 caster: playerNum, 
-                targetPlayer: action.targetPlayer, 
-                row: action.row, 
-                col: action.col, 
+                targetPlayer: t.player, 
+                row: t.row, 
+                col: t.col, 
                 spell: spell 
             });
-            await sleep(600);
             
-            if (spell.pattern === 'cross') {
-                // Sort en croix - touche les cases adjacentes sur le même plateau
-                const targets = getCrossTargets(action.targetPlayer, action.row, action.col);
-                log(`  ✝️ ${spell.name} explose en croix depuis ${slotNames[action.row][action.col]}!`, 'damage');
+            if (target) {
+                target.currentHp -= spell.damage;
+                log(`    🔥 ${target.name} (-${spell.damage})`, 'damage');
+                emitAnimation(room, 'damage', { player: t.player, row: t.row, col: t.col, amount: spell.damage });
                 
-                for (const t of targets) {
-                    const targetField = t.player === playerNum ? player.field : opponent.field;
-                    const target = targetField[t.row][t.col];
-                    
-                    emitAnimation(room, 'spell', { 
-                        caster: playerNum, 
-                        targetPlayer: t.player, 
-                        row: t.row, 
-                        col: t.col, 
-                        spell: spell 
-                    });
-                    
-                    if (target) {
-                        target.currentHp -= spell.damage;
-                        log(`    🔥 ${target.name} (-${spell.damage})`, 'damage');
-                        emitAnimation(room, 'damage', { player: t.player, row: t.row, col: t.col, amount: spell.damage });
-                        
-                        if (target.currentHp <= 0) {
-                            const targetOwner = t.player === playerNum ? player : opponent;
-                            targetOwner.graveyard.push(target);
-                            targetField[t.row][t.col] = null;
-                            log(`    ☠️ ${target.name} détruit!`, 'damage');
-                            emitAnimation(room, 'death', { player: t.player, row: t.row, col: t.col });
-                        }
-                    }
-                    await sleep(200);
-                }
-            } else {
-                // Sort simple
-                const targetField = action.targetPlayer === playerNum ? player.field : opponent.field;
-                const target = targetField[action.row][action.col];
-                
-                if (target) {
-                    if (spell.offensive && spell.damage) {
-                        target.currentHp -= spell.damage;
-                        log(`  🔥 ${spell.name} inflige ${spell.damage} dégâts à ${target.name}!`, 'damage');
-                        emitAnimation(room, 'damage', { player: action.targetPlayer, row: action.row, col: action.col, amount: spell.damage });
-                        
-                        if (target.currentHp <= 0) {
-                            const targetOwner = action.targetPlayer === playerNum ? player : opponent;
-                            targetOwner.graveyard.push(target);
-                            targetField[action.row][action.col] = null;
-                            log(`  ☠️ ${target.name} détruit!`, 'damage');
-                            emitAnimation(room, 'death', { player: action.targetPlayer, row: action.row, col: action.col });
-                        }
-                    }
-                    if (!spell.offensive && spell.heal) {
-                        const oldHp = target.currentHp;
-                        target.currentHp = Math.min(target.hp, target.currentHp + spell.heal);
-                        const healed = target.currentHp - oldHp;
-                        if (healed > 0) {
-                            log(`  💚 ${spell.name} soigne ${target.name} (+${healed} PV)`, 'heal');
-                            emitAnimation(room, 'heal', { player: action.targetPlayer, row: action.row, col: action.col, amount: healed });
-                        }
-                    }
-                } else {
-                    log(`  💨 ${spell.name} n'a rien touché en ${slotNames[action.row][action.col]}`, 'action');
-                    emitAnimation(room, 'spellMiss', { targetPlayer: action.targetPlayer, row: action.row, col: action.col });
+                if (target.currentHp <= 0) {
+                    const targetOwner = t.player === playerNum ? player : opponent;
+                    targetOwner.graveyard.push(target);
+                    targetField[t.row][t.col] = null;
+                    log(`    ☠️ ${target.name} détruit!`, 'damage');
+                    emitAnimation(room, 'death', { player: t.player, row: t.row, col: t.col });
                 }
             }
-            
-            emitStateToBoth(room);
-            await sleep(500);
-            break;
+            await sleep(400);
+        }
+    } else {
+        const targetField = action.targetPlayer === playerNum ? player.field : opponent.field;
+        const target = targetField[action.row][action.col];
+        
+        if (target) {
+            if (spell.offensive && spell.damage) {
+                target.currentHp -= spell.damage;
+                log(`  🔥 ${action.heroName}: ${spell.name} → ${target.name} (-${spell.damage})`, 'damage');
+                emitAnimation(room, 'damage', { player: action.targetPlayer, row: action.row, col: action.col, amount: spell.damage });
+                
+                if (target.currentHp <= 0) {
+                    const targetOwner = action.targetPlayer === playerNum ? player : opponent;
+                    targetOwner.graveyard.push(target);
+                    targetField[action.row][action.col] = null;
+                    log(`  ☠️ ${target.name} détruit!`, 'damage');
+                    emitAnimation(room, 'death', { player: action.targetPlayer, row: action.row, col: action.col });
+                }
+            }
+            if (!spell.offensive && spell.heal) {
+                const oldHp = target.currentHp;
+                target.currentHp = Math.min(target.hp, target.currentHp + spell.heal);
+                const healed = target.currentHp - oldHp;
+                if (healed > 0) {
+                    log(`  💚 ${action.heroName}: ${spell.name} → ${target.name} (+${healed} PV)`, 'heal');
+                    emitAnimation(room, 'heal', { player: action.targetPlayer, row: action.row, col: action.col, amount: healed });
+                }
+            }
+        } else {
+            log(`  💨 ${action.heroName}: ${spell.name} n'a rien touché`, 'action');
+            emitAnimation(room, 'spellMiss', { targetPlayer: action.targetPlayer, row: action.row, col: action.col });
+        }
     }
+    
+    emitStateToBoth(room);
+    await sleep(600);
+}
+
+async function applyAction(room, playerNum, action, log, sleep) {
+    // Fonction legacy - non utilisée dans la nouvelle résolution
 }
 
 async function processCombat(room, attackerPlayer, row, col, log, sleep) {
@@ -423,14 +479,14 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
     const trap = defenderState.traps[row];
     if (trap) {
         emitAnimation(room, 'trapTrigger', { player: defenderPlayer, row: row, trap: trap });
-        await sleep(500);
+        await sleep(700);
         
         log(`🪤 Piège "${trap.name}" déclenché sur ${attacker.name}!`, 'trap');
         
         if (trap.damage) {
             attacker.currentHp -= trap.damage;
             emitAnimation(room, 'damage', { player: attackerPlayer, row: row, col: col, amount: trap.damage });
-            await sleep(300);
+            await sleep(500);
         }
         
         const wasStunned = trap.effect === 'stun';
@@ -442,7 +498,7 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
         defenderState.traps[row] = null;
         
         emitStateToBoth(room);
-        await sleep(300);
+        await sleep(500);
         
         if (attacker.currentHp <= 0) {
             room.gameState.players[attackerPlayer].graveyard.push(attacker);
@@ -450,7 +506,7 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
             log(`  ☠️ ${attacker.name} détruit par le piège!`, 'damage');
             emitAnimation(room, 'death', { player: attackerPlayer, row: row, col: col });
             emitStateToBoth(room);
-            await sleep(300);
+            await sleep(600);
             return;
         }
         
@@ -483,7 +539,7 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
         isFlying: fly,
         isShooter: attacker.abilities.includes('shooter')
     });
-    await sleep(400);
+    await sleep(600);
     
     if (!blocker) {
         defenderState.hp -= attacker.atk;
@@ -491,7 +547,7 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
         emitAnimation(room, 'heroHit', { defender: defenderPlayer, damage: attacker.atk });
         io.to(room.code).emit('directDamage', { defender: defenderPlayer, damage: attacker.atk });
         emitStateToBoth(room);
-        await sleep(400);
+        await sleep(600);
         return;
     }
     
@@ -500,31 +556,33 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
     emitAnimation(room, 'damage', { player: defenderPlayer, row: row, col: blockerCol, amount: attacker.atk });
     
     if (blocker.canAttack && blocker.currentHp > 0) {
-        await sleep(300);
+        await sleep(500);
         attacker.currentHp -= blocker.atk;
         log(`↩️ ${blocker.name} riposte (-${blocker.atk})`, 'damage');
         emitAnimation(room, 'counterAttack', { player: defenderPlayer, row: row, col: blockerCol });
-        await sleep(200);
+        await sleep(400);
         emitAnimation(room, 'damage', { player: attackerPlayer, row: row, col: col, amount: blocker.atk });
     }
     
     emitStateToBoth(room);
-    await sleep(400);
+    await sleep(600);
     
     if (blocker.currentHp <= 0) {
         defenderState.graveyard.push(blocker);
         defenderField[row][blockerCol] = null;
         log(`☠️ ${blocker.name} détruit!`, 'damage');
         emitAnimation(room, 'death', { player: defenderPlayer, row: row, col: blockerCol });
+        await sleep(400);
     }
     if (attacker.currentHp <= 0) {
         room.gameState.players[attackerPlayer].graveyard.push(attacker);
         room.gameState.players[attackerPlayer].field[row][col] = null;
         log(`☠️ ${attacker.name} détruit!`, 'damage');
         emitAnimation(room, 'death', { player: attackerPlayer, row: row, col: col });
+        await sleep(400);
     }
     emitStateToBoth(room);
-    await sleep(300);
+    await sleep(500);
 }
 
 function startNewTurn(room) {
