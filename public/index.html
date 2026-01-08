@@ -953,7 +953,7 @@
             });
         }
         
-        // Prévisualiser les cibles du sort croix au survol
+        // Prévisualiser les cibles du sort croix au survol (centre + adjacents)
         function previewCrossTargets(targetOwner, row, col) {
             // Nettoyer les anciennes prévisualisations
             document.querySelectorAll('.card-slot.cross-target').forEach(s => s.classList.remove('cross-target'));
@@ -961,6 +961,7 @@
             const targetPlayer = targetOwner === 'me' ? myNum : (myNum === 1 ? 2 : 1);
             const adjacents = getCrossTargetsClient(targetPlayer, row, col);
             
+            // Le centre est déjà surligné en vert (valid-target), on ajoute les adjacents en orange
             adjacents.forEach(t => {
                 const owner = t.player === myNum ? 'me' : 'opp';
                 const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${t.row}"][data-col="${t.col}"]`);
@@ -968,7 +969,7 @@
             });
         }
         
-        // Version client de getCrossTargets
+        // Version client de getCrossTargets (cases adjacentes seulement, le centre est la cible principale)
         function getCrossTargetsClient(targetPlayer, row, col) {
             const targets = [];
             if (row > 0) targets.push({ row: row - 1, col, player: targetPlayer });
