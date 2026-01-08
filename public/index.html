@@ -823,7 +823,12 @@
         }
         
         function animateMove(data) {
-            const owner = data.player === myNum ? 'me' : 'opp';
+            // N'animer que les déplacements de l'adversaire (pas les nôtres)
+            if (data.player === myNum) {
+                return; // Nos cartes sont déjà à leur nouvelle position
+            }
+            
+            const owner = 'opp';
             
             // Bloquer les deux slots (origine et destination)
             const fromKey = `${owner}-${data.fromRow}-${data.fromCol}`;
