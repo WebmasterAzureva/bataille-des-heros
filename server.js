@@ -651,11 +651,13 @@ async function processCombatSlot(room, row, col, log, sleep) {
             });
             
             // RIPOSTE : seulement si la cible NE PEUT PAS attaquer ce tour
-            // ET l'attaquant N'EST PAS un tireur
+            // ET (l'attaquant N'EST PAS un tireur OU la cible EST un tireur)
+            // => Les tireurs évitent la riposte SAUF si la cible est aussi un tireur
             const attackerIsShooter = atk.attacker.abilities.includes('shooter');
+            const targetIsShooter = atk.target.abilities?.includes('shooter');
             const targetCanAttack = atk.target.canAttack;
             
-            if (!targetCanAttack && !attackerIsShooter) {
+            if (!targetCanAttack && (!attackerIsShooter || targetIsShooter)) {
                 damages.push({
                     type: 'creature',
                     player: atk.attackerPlayer,
