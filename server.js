@@ -145,6 +145,7 @@ function getPublicGameState(room, forPlayer) {
             deckCount: me.deck.length,
             field: me.field,
             traps: me.traps,
+            graveyard: me.graveyard,
             graveyardCount: me.graveyard.length,
             ready: me.ready,
             inDeployPhase: me.inDeployPhase,
@@ -158,6 +159,7 @@ function getPublicGameState(room, forPlayer) {
             deckCount: opp.deck.length,
             field: isPlanning && opp.confirmedField ? opp.confirmedField : opp.field,
             traps: isPlanning && opp.confirmedTraps ? opp.confirmedTraps : opp.traps,
+            graveyard: opp.graveyard,
             graveyardCount: opp.graveyard.length,
             ready: opp.ready,
             heroName: opp.heroName
