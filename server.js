@@ -559,7 +559,7 @@ async function applyAction(room, playerNum, action, log, sleep) {
     // Fonction legacy - non utilisée dans la nouvelle résolution
 }
 
-// Combat pour un slot spécifique (les deux joueurs au même slot combattent simultanément)
+// Combat pour un slot spécifique - chaque créature attaque sa cible, pas de riposte automatique
 async function processCombatSlot(room, row, col, log, sleep) {
     const slotNames = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
     const slotLetter = slotNames[row][col];
@@ -626,7 +626,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
     }
     await sleep(500);
     
-    // Calculer les dégâts
+    // Calculer les dégâts - CHAQUE CRÉATURE N'INFLIGE SES DÉGÂTS QU'À SA CIBLE
     const damages = [];
     
     for (const atk of attacks) {
@@ -649,22 +649,9 @@ async function processCombatSlot(room, row, col, log, sleep) {
                 defenderName: atk.target.name
             });
             
-            // Riposte si la cible peut attaquer et l'attaquant n'est pas tireur (ou les deux sont tireurs)
-            const attackerIsShooter = atk.attacker.abilities.includes('shooter');
-            const targetIsShooter = atk.target.abilities?.includes('shooter');
-            
-            if (!attackerIsShooter || (attackerIsShooter && targetIsShooter)) {
-                damages.push({
-                    type: 'creature',
-                    player: atk.attackerPlayer,
-                    row: atk.attackerRow,
-                    col: atk.attackerCol,
-                    amount: atk.target.atk,
-                    attackerName: atk.target.name,
-                    defenderName: atk.attacker.name,
-                    isRiposte: true
-                });
-            }
+            // PAS DE RIPOSTE AUTOMATIQUE
+            // La riposte n'existe que si les deux créatures se ciblent mutuellement
+            // Dans ce cas, les deux attaques sont déjà dans la liste "attacks"
         }
     }
     
@@ -679,11 +666,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
             const targetCard = room.gameState.players[dmg.player].field[dmg.row][dmg.col];
             if (targetCard) {
                 targetCard.currentHp -= dmg.amount;
-                if (dmg.isRiposte) {
-                    log(`↩️ ${dmg.attackerName} riposte sur ${dmg.defenderName} (-${dmg.amount})`, 'damage');
-                } else {
-                    log(`⚔️ ${dmg.attackerName} → ${dmg.defenderName} (-${dmg.amount})`, 'damage');
-                }
+                log(`⚔️ ${dmg.attackerName} → ${dmg.defenderName} (-${dmg.amount})`, 'damage');
                 emitAnimation(room, 'damage', { player: dmg.player, row: dmg.row, col: dmg.col, amount: dmg.amount });
             }
         }
@@ -692,7 +675,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
     emitStateToBoth(room);
     await sleep(400);
     
-    // Vérifier les morts
+    // Vérifier les morts sur ce slot
     for (let p = 1; p <= 2; p++) {
         const card = room.gameState.players[p].field[row][col];
         if (card && card.currentHp <= 0) {
@@ -703,7 +686,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
         }
     }
     
-    // Vérifier aussi les cibles qui ne sont pas au même slot
+    // Vérifier aussi les cibles qui ne sont pas au même slot (ex: shooter qui tire sur la colonne d'à côté)
     for (const atk of attacks) {
         if (!atk.targetIsHero && atk.target && (atk.targetRow !== row || atk.targetCol !== col)) {
             const targetCard = room.gameState.players[atk.targetPlayer].field[atk.targetRow][atk.targetCol];
