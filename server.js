@@ -263,14 +263,15 @@ async function startResolution(room) {
         }
     }
     
-    // 2. POSES DE CRÉATURES
+    // 2. POSES DE CRÉATURES (animation seulement pour l'adversaire de chaque joueur)
     if (allActions.places.length > 0) {
         log('🎴 Invocations', 'phase');
         await sleep(600);
         
         for (const action of allActions.places) {
             log(`  🎴 ${action.heroName}: ${action.card.name} en ${slotNames[action.row][action.col]}`, 'action');
-            emitAnimation(room, 'summon', { player: action.playerNum, row: action.row, col: action.col, card: action.card });
+            // L'animation sera filtrée côté client - chaque joueur ne voit l'animation que pour les créatures adverses
+            emitAnimation(room, 'summon', { player: action.playerNum, row: action.row, col: action.col, card: action.card, animateForOpponent: true });
             emitStateToBoth(room);
             await sleep(800);
         }
