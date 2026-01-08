@@ -23,7 +23,7 @@ const CardDB = {
         { id: 'phoenix', name: 'Phénix', atk: 3, hp: 3, cost: 4, abilities: ['fly', 'haste'], type: 'creature', icon: '🔥' },
         { id: 'sniper', name: 'Sniper', atk: 4, hp: 1, cost: 2, abilities: ['shooter'], type: 'creature', icon: '🎯' },
         { id: 'guardian', name: 'Gardien', atk: 1, hp: 6, cost: 2, abilities: [], type: 'creature', icon: '🏰' },
-        { id: 'hawk', name: 'Faucon', atk: 2, hp: 2, cost: 3, abilities: ['fly', 'shooter'], type: 'creature', icon: '🦅' },
+        { id: 'hawk', name: 'Faucon', atk: 2, hp: 2, cost: 3, abilities: ['fly'], type: 'creature', icon: '🦅' },
         { id: 'berserker', name: 'Berserker', atk: 5, hp: 2, cost: 3, abilities: ['haste'], type: 'creature', icon: '💀' },
         { id: 'goblin', name: 'Gobelin', atk: 1, hp: 1, cost: 1, abilities: [], type: 'creature', icon: '👺' },
         { id: 'orc', name: 'Orc', atk: 3, hp: 3, cost: 2, abilities: [], type: 'creature', icon: '👹' },
@@ -257,6 +257,7 @@ async function startResolution(room) {
         
         for (const action of allActions.moves) {
             log(`  ↔️ ${action.heroName}: ${action.card.name} ${slotNames[action.fromRow][action.fromCol]} → ${slotNames[action.toRow][action.toCol]}`, 'action');
+            // D'abord envoyer l'animation (le client bloque les slots et vide l'origine)
             emitAnimation(room, 'move', { 
                 player: action.playerNum, 
                 fromRow: action.fromRow, 
@@ -265,7 +266,11 @@ async function startResolution(room) {
                 toCol: action.toCol,
                 card: action.card
             });
-            await sleep(800);
+            // Attendre que le client ait traité l'animation
+            await sleep(100);
+            // Envoyer le state (les slots sont bloqués, le render n'affichera rien)
+            emitStateToBoth(room);
+            await sleep(700);
         }
     }
     
@@ -278,12 +283,14 @@ async function startResolution(room) {
             log(`  🎴 ${action.heroName}: ${action.card.name} en ${slotNames[action.row][action.col]}`, 'action');
             // D'abord envoyer l'animation (le client va créer l'overlay et bloquer le slot)
             emitAnimation(room, 'summon', { player: action.playerNum, row: action.row, col: action.col, card: action.card, animateForOpponent: true });
+            // Attendre que le client ait traité l'animation et bloqué le slot
+            await sleep(100);
             // Ensuite envoyer le state (le slot est bloqué, la carte ne sera pas affichée)
             emitStateToBoth(room);
-            await sleep(800);
+            await sleep(700);
         }
-    } else {
-        // Pas d'invocations, envoyer le state quand même
+    } else if (allActions.moves.length === 0) {
+        // Ni moves ni invocations, envoyer le state quand même
         emitStateToBoth(room);
     }
     
