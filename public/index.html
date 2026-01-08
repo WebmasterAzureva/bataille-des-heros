@@ -41,22 +41,21 @@
         .player-name.opp { background: linear-gradient(135deg, #6a2a4a, #5a1a3a); border: 2px solid #9a4a7c; }
         .options-btn { width: 35px; height: 35px; border-radius: 50%; background: #5a4a3a; border: 2px solid #8b7355; cursor: pointer; font-size: 1em; }
         
+        .header-center { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 15px; }
+        .header-timer { font-size: 1.8em; font-weight: bold; color: #e74c3c; text-shadow: 0 0 15px rgba(231,76,60,0.8); min-width: 50px; text-align: center; display: none; }
+        .header-timer.visible { display: block; }
+        .header-timer.urgent { animation: timerPulse 0.5s infinite; }
+        @keyframes timerPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); color: #ff4444; } }
+        
         .energy-display { display: flex; align-items: center; gap: 8px; }
         .mana-orb { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #7ec8f3, #1e90ff, #0066cc); border: 3px solid #87ceeb; box-shadow: 0 0 15px rgba(30,144,255,0.6); display: flex; align-items: center; justify-content: center; font-size: 1.1em; font-weight: bold; }
         .energy-text { font-size: 1.2em; color: #87ceeb; font-weight: bold; }
         
-        .timer-container { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; z-index: 101; }
-        .timer-container.visible { display: flex; }
-        .timer-container.urgent { animation: urgentPulse 0.5s infinite; }
-        .timer-text { font-size: 2em; font-weight: bold; color: #e74c3c; text-shadow: 0 0 20px rgba(231,76,60,0.8); }
-        @keyframes urgentPulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.1); } }
-        
-        .end-turn-btn { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ff6b35, #c41e00); border: 4px solid #ffd700; cursor: pointer; font-size: 0.7em; font-weight: bold; color: white; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+        .end-turn-btn { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ff6b35, #c41e00); border: 4px solid #ffd700; cursor: pointer; font-size: 0.65em; font-weight: bold; color: white; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
         .end-turn-btn:hover:not(.waiting) { transform: translateX(-50%) scale(1.08); box-shadow: 0 6px 25px rgba(255,107,53,0.5); }
         .end-turn-btn.waiting { background: radial-gradient(circle at 30% 30%, #666, #444); border-color: #888; cursor: default; }
-        .end-turn-btn.with-timer { top: 115px; }
         
-        .phase-indicator { position: absolute; top: 200px; left: 50%; transform: translateX(-50%); padding: 8px 25px; background: rgba(46,204,113,0.9); border-radius: 20px; border: 2px solid #58d68d; font-size: 0.8em; z-index: 90; white-space: nowrap; opacity: 1; transition: opacity 0.5s ease-out; }
+        .phase-indicator { position: absolute; top: 155px; left: 50%; transform: translateX(-50%); padding: 8px 25px; background: rgba(46,204,113,0.9); border-radius: 20px; border: 2px solid #58d68d; font-size: 0.8em; z-index: 90; white-space: nowrap; opacity: 1; transition: opacity 0.5s ease-out; }
         .phase-indicator.fade-out { opacity: 0; }
         .phase-indicator.redeploy { background: rgba(52,152,219,0.9); border-color: #5dade2; }
         .phase-indicator.deploy { background: rgba(46,204,113,0.9); border-color: #58d68d; }
@@ -98,6 +97,8 @@
         .card-slot.opp-slot { border-color: rgba(150,74,100,0.4); background: rgba(150,74,100,0.08); }
         .card-slot.has-card { border-color: transparent; background: transparent; }
         .card-slot.valid-target { border-color: #2ecc71 !important; background: rgba(46,204,113,0.25) !important; box-shadow: 0 0 15px rgba(46,204,113,0.5); animation: validPulse 1s infinite; }
+        .card-slot.cross-target { border-color: #f39c12 !important; background: rgba(243,156,18,0.3) !important; box-shadow: 0 0 15px rgba(243,156,18,0.6); animation: crossPulse 1s infinite; }
+        @keyframes crossPulse { 0%,100% { box-shadow: 0 0 10px rgba(243,156,18,0.4); } 50% { box-shadow: 0 0 25px rgba(243,156,18,0.8); } }
         .card-slot.drag-over { border-color: #f1c40f !important; background: rgba(241,196,15,0.35) !important; box-shadow: 0 0 25px rgba(241,196,15,0.8); }
         .card-slot.moveable { border-color: #3498db !important; background: rgba(52,152,219,0.25) !important; box-shadow: 0 0 15px rgba(52,152,219,0.5); }
         @keyframes validPulse { 0%,100% { box-shadow: 0 0 10px rgba(46,204,113,0.4); } 50% { box-shadow: 0 0 25px rgba(46,204,113,0.8); } }
@@ -175,21 +176,22 @@
             background: transparent; 
             max-width: calc(50% - 150px); 
             z-index: 20;
-            align-items: flex-end;
         }
         .my-hand .card { 
-            margin-left: -45px; 
-            transition: transform 0.25s ease-out; 
+            margin-left: -40px; 
+            transition: transform 0.2s ease-out, z-index 0s; 
             flex-shrink: 0;
+            position: relative;
+            z-index: 1;
         }
         .my-hand .card:first-child { margin-left: 0; }
         .my-hand .card:hover:not(.dragging) { 
-            transform: translateY(-90px) scale(1.12); 
-            z-index: 100; 
+            transform: translateY(-90px) scale(1.15); 
+            z-index: 100 !important;
         }
         .my-hand .card.selected { 
-            transform: translateY(-100px) scale(1.15); 
-            z-index: 101; 
+            transform: translateY(-100px) scale(1.18); 
+            z-index: 101 !important; 
             box-shadow: 0 0 25px rgba(255,215,0,0.8); 
         }
         
@@ -202,12 +204,11 @@
             padding: 10px 15px 0 15px;
             background: transparent;
             z-index: 20;
-            align-items: flex-end;
         }
         .opp-card-back { 
             width: 86px; /* Même taille que les cartes du joueur */
             height: 116px; 
-            margin-left: -45px; 
+            margin-left: -40px; 
             border-radius: 6px; 
             background: linear-gradient(135deg, #4a3a2a, #2a2015); 
             border: 3px solid #8b7355; 
@@ -217,12 +218,14 @@
             font-size: 1.8em;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             flex-shrink: 0;
-            transition: transform 0.25s ease-out;
+            transition: transform 0.2s ease-out;
+            position: relative;
+            z-index: 1;
         }
         .opp-card-back:first-child { margin-left: 0; }
         .opp-card-back:hover {
-            transform: translateY(-90px) scale(1.12);
-            z-index: 100;
+            transform: translateY(-90px) scale(1.15);
+            z-index: 100 !important;
         }
         
         .log-btn { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); padding: 8px 20px; background: rgba(60,50,40,0.9); border: 2px solid #8b7355; border-radius: 20px; cursor: pointer; font-size: 0.75em; z-index: 30; }
@@ -274,6 +277,9 @@
                     <span class="energy-text">Mana</span>
                 </div>
             </div>
+            <div class="header-center">
+                <span class="header-timer" id="header-timer">15</span>
+            </div>
             <div class="player-info-bar">
                 <div class="energy-display">
                     <span class="energy-text">Mana</span>
@@ -290,10 +296,6 @@
             <span>FIN DU</span>
             <span>TOUR</span>
         </button>
-        
-        <div class="timer-container" id="timer-container">
-            <span class="timer-text" id="timer">15</span>
-        </div>
         
         <div class="phase-indicator deploy" id="phase-indicator">🔄 Phase de Redéploiement</div>
         
@@ -616,6 +618,11 @@
         }
         
         function animateSummon(data) {
+            // N'animer que les créatures de l'adversaire (pas les nôtres, on sait déjà qu'on les a posées)
+            if (data.animateForOpponent && data.player === myNum) {
+                return; // C'est notre créature, pas d'animation
+            }
+            
             const owner = data.player === myNum ? 'me' : 'opp';
             setTimeout(() => {
                 const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
@@ -635,18 +642,14 @@
         }
         
         function updateTimerDisplay(t) {
-            const container = document.getElementById('timer-container');
-            const timerEl = document.getElementById('timer');
-            const btnEl = document.getElementById('end-turn-btn');
+            const timerEl = document.getElementById('header-timer');
             
             if (t <= 15 && state && state.phase === 'planning') {
-                container.classList.add('visible');
+                timerEl.classList.add('visible');
                 timerEl.textContent = t;
-                btnEl.classList.add('with-timer');
-                container.classList.toggle('urgent', t <= 5);
+                timerEl.classList.toggle('urgent', t <= 5);
             } else {
-                container.classList.remove('visible', 'urgent');
-                btnEl.classList.remove('with-timer');
+                timerEl.classList.remove('visible', 'urgent');
             }
         }
         
@@ -750,13 +753,33 @@
             el.innerHTML = `<span class="slot-label">${label}</span>`;
             
             el.onclick = () => clickSlot(owner, row, col);
+            
+            // Prévisualisation du sort croix au survol
+            el.onmouseenter = () => {
+                if (selected && selected.fromHand && selected.type === 'spell' && selected.pattern === 'cross') {
+                    if (el.classList.contains('valid-target')) {
+                        previewCrossTargets(owner, row, col);
+                    }
+                }
+            };
+            el.onmouseleave = () => {
+                document.querySelectorAll('.card-slot.cross-target').forEach(s => s.classList.remove('cross-target'));
+            };
+            
             el.ondragover = (e) => { 
                 e.preventDefault(); 
                 if (el.classList.contains('valid-target') || el.classList.contains('moveable')) {
                     el.classList.add('drag-over');
                 }
+                // Prévisualisation croix au drag
+                if (dragged && dragged.type === 'spell' && dragged.pattern === 'cross' && el.classList.contains('valid-target')) {
+                    previewCrossTargets(owner, row, col);
+                }
             };
-            el.ondragleave = () => el.classList.remove('drag-over');
+            el.ondragleave = () => {
+                el.classList.remove('drag-over');
+                document.querySelectorAll('.card-slot.cross-target').forEach(s => s.classList.remove('cross-target'));
+            };
             el.ondrop = (e) => { 
                 e.preventDefault(); 
                 el.classList.remove('drag-over');
@@ -857,6 +880,31 @@
             });
         }
         
+        // Prévisualiser les cibles du sort croix au survol
+        function previewCrossTargets(targetOwner, row, col) {
+            // Nettoyer les anciennes prévisualisations
+            document.querySelectorAll('.card-slot.cross-target').forEach(s => s.classList.remove('cross-target'));
+            
+            const targetPlayer = targetOwner === 'me' ? myNum : (myNum === 1 ? 2 : 1);
+            const adjacents = getCrossTargetsClient(targetPlayer, row, col);
+            
+            adjacents.forEach(t => {
+                const owner = t.player === myNum ? 'me' : 'opp';
+                const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${t.row}"][data-col="${t.col}"]`);
+                if (slot) slot.classList.add('cross-target');
+            });
+        }
+        
+        // Version client de getCrossTargets
+        function getCrossTargetsClient(targetPlayer, row, col) {
+            const targets = [];
+            if (row > 0) targets.push({ row: row - 1, col, player: targetPlayer });
+            if (row < 3) targets.push({ row: row + 1, col, player: targetPlayer });
+            if (col > 0) targets.push({ row, col: col - 1, player: targetPlayer });
+            if (col < 1) targets.push({ row, col: col + 1, player: targetPlayer });
+            return targets;
+        }
+        
         function highlightMoveTargets(fromRow, fromCol, card) {
             clearHighlights();
             [fromRow - 1, fromRow + 1].forEach(toRow => {
@@ -869,7 +917,7 @@
         
         function clearHighlights() {
             document.querySelectorAll('.card-slot, .trap-slot').forEach(s => {
-                s.classList.remove('valid-target', 'drag-over', 'moveable');
+                s.classList.remove('valid-target', 'drag-over', 'moveable', 'cross-target');
             });
         }
         
@@ -979,6 +1027,9 @@
                 const el = makeCard(card, true);
                 el.dataset.idx = i;
                 
+                // Z-index incrémental pour éviter les saccades au hover
+                el.style.zIndex = i + 1;
+                
                 // Toujours draggable visuellement, mais le drag sera annulé si pas assez de mana
                 el.draggable = true;
                 
@@ -1009,6 +1060,7 @@
                 const el = document.createElement('div');
                 el.className = 'opp-card-back';
                 el.textContent = '🎴';
+                el.style.zIndex = i + 1; // Z-index incrémental
                 panel.appendChild(el);
             }
         }
