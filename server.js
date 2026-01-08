@@ -250,14 +250,22 @@ async function startResolution(room) {
         }
     }
     
-    // 1. REDÉPLOIEMENTS - Les animations utilisent les données envoyées
+    // Collecter les slots qui vont recevoir des créatures (pour les bloquer côté client)
+    const summonSlots = allActions.places.map(a => ({ player: a.playerNum, row: a.row, col: a.col }));
+    
+    // Informer le client des slots à bloquer AVANT tout
+    if (summonSlots.length > 0) {
+        io.to(room.code).emit('blockSlots', summonSlots);
+        await sleep(50);
+    }
+    
+    // 1. REDÉPLOIEMENTS
     if (allActions.moves.length > 0) {
         log('🔄 Redéploiements', 'phase');
         await sleep(600);
         
         for (const action of allActions.moves) {
             log(`  ↔️ ${action.heroName}: ${action.card.name} ${slotNames[action.fromRow][action.fromCol]} → ${slotNames[action.toRow][action.toCol]}`, 'action');
-            // D'abord envoyer l'animation (le client bloque les slots et vide l'origine)
             emitAnimation(room, 'move', { 
                 player: action.playerNum, 
                 fromRow: action.fromRow, 
@@ -266,9 +274,7 @@ async function startResolution(room) {
                 toCol: action.toCol,
                 card: action.card
             });
-            // Attendre que le client ait traité l'animation
             await sleep(100);
-            // Envoyer le state (les slots sont bloqués, le render n'affichera rien)
             emitStateToBoth(room);
             await sleep(700);
         }
@@ -281,16 +287,12 @@ async function startResolution(room) {
         
         for (const action of allActions.places) {
             log(`  🎴 ${action.heroName}: ${action.card.name} en ${slotNames[action.row][action.col]}`, 'action');
-            // D'abord envoyer l'animation (le client va créer l'overlay et bloquer le slot)
             emitAnimation(room, 'summon', { player: action.playerNum, row: action.row, col: action.col, card: action.card, animateForOpponent: true });
-            // Attendre que le client ait traité l'animation et bloqué le slot
             await sleep(100);
-            // Ensuite envoyer le state (le slot est bloqué, la carte ne sera pas affichée)
             emitStateToBoth(room);
             await sleep(700);
         }
     } else if (allActions.moves.length === 0) {
-        // Ni moves ni invocations, envoyer le state quand même
         emitStateToBoth(room);
     }
     
