@@ -148,7 +148,8 @@
         .card.dying { animation: deathAnim 0.6s ease-out forwards; }
         @keyframes deathAnim { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0) rotate(180deg); opacity: 0; } }
         
-        .card.summoning { animation: summonAnim 0.5s ease-out; }
+        .card.summoning { animation: summonAnim 0.5s ease-out forwards; }
+        .card.pending-summon { opacity: 0; transform: scale(0); }
         @keyframes summonAnim { 0% { transform: scale(0) translateY(-50px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
         
         .card.healing { animation: healAnim 0.5s ease-out; }
@@ -659,34 +660,37 @@
             }
         }
         
+        // Invocations adverses en attente d'animation
+        let pendingSummons = [];
+        
         function animateSummon(data) {
             // N'animer que les créatures de l'adversaire (pas les nôtres, on sait déjà qu'on les a posées)
             if (data.animateForOpponent && data.player === myNum) {
                 return; // C'est notre créature, pas d'animation
             }
             
+            // Stocker l'invocation en attente - sera traitée au prochain render
             const owner = data.player === myNum ? 'me' : 'opp';
-            const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
+            pendingSummons.push({ owner, row: data.row, col: data.col });
+        }
+        
+        // Appelée après chaque render pour animer les invocations en attente
+        function processPendingSummons() {
+            if (pendingSummons.length === 0) return;
             
-            // Attendre que le DOM soit mis à jour puis animer
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const card = slot?.querySelector('.card');
+            // Petit délai pour que le DOM soit prêt
+            setTimeout(() => {
+                pendingSummons.forEach(summon => {
+                    const slot = document.querySelector(`.card-slot[data-owner="${summon.owner}"][data-row="${summon.row}"][data-col="${summon.col}"]`);
+                    const card = slot?.querySelector('.card.pending-summon');
                     if (card) {
-                        // Forcer l'état initial
-                        card.style.opacity = '0';
-                        card.style.transform = 'scale(0) translateY(-50px)';
-                        
-                        // Déclencher l'animation après un micro-délai
-                        setTimeout(() => {
-                            card.style.opacity = '';
-                            card.style.transform = '';
-                            card.classList.add('summoning');
-                            setTimeout(() => card.classList.remove('summoning'), 500);
-                        }, 20);
+                        card.classList.remove('pending-summon');
+                        card.classList.add('summoning');
+                        setTimeout(() => card.classList.remove('summoning'), 500);
                     }
                 });
-            });
+                pendingSummons = [];
+            }, 50);
         }
         
         // Afficher une carte à l'écran (pour sorts et pièges)
@@ -1018,6 +1022,9 @@
                 document.getElementById('opp-ready').classList.add('ready');
                 document.getElementById('opp-ready').textContent = '✓';
             }
+            
+            // Traiter les animations d'invocation en attente
+            processPendingSummons();
         }
         
         function renderField(owner, field) {
@@ -1035,6 +1042,12 @@
                     if (card) {
                         slot.classList.add('has-card');
                         const cardEl = makeCard(card, false);
+                        
+                        // Vérifier si cette carte est en attente d'animation
+                        const isPendingSummon = pendingSummons.some(s => s.owner === owner && s.row === r && s.col === c);
+                        if (isPendingSummon) {
+                            cardEl.classList.add('pending-summon');
+                        }
                         
                         // Drag & drop pour redéploiement (seulement mes cartes)
                         if (owner === 'me' && !state.me.inDeployPhase && !card.movedThisTurn) {
