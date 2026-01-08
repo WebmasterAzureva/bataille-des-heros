@@ -9,6 +9,9 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Hero names
+const HERO_NAMES = ['Aldric', 'Lyra', 'Theron', 'Seraphine', 'Kael', 'Mira', 'Draven', 'Elena'];
+
 // ==================== CARD DATABASE ====================
 const CardDB = {
     creatures: [
@@ -27,9 +30,10 @@ const CardDB = {
         { id: 'wolf', name: 'Loup', atk: 2, hp: 1, cost: 1, abilities: ['haste'], type: 'creature', icon: '🐺' }
     ],
     spells: [
-        { id: 'fireball', name: 'Boule de feu', damage: 3, cost: 2, type: 'spell', offensive: true, icon: '🔥' },
-        { id: 'heal', name: 'Soin', heal: 3, cost: 1, type: 'spell', offensive: false, icon: '💚' },
-        { id: 'lightning', name: 'Éclair', damage: 2, cost: 1, type: 'spell', offensive: true, icon: '⚡' }
+        { id: 'fireball', name: 'Boule de feu', damage: 3, cost: 2, type: 'spell', offensive: true, icon: '🔥', pattern: 'single' },
+        { id: 'heal', name: 'Soin', heal: 3, cost: 1, type: 'spell', offensive: false, icon: '💚', pattern: 'single' },
+        { id: 'lightning', name: 'Éclair', damage: 2, cost: 1, type: 'spell', offensive: true, icon: '⚡', pattern: 'single' },
+        { id: 'cross', name: 'Croix de feu', damage: 2, cost: 3, type: 'spell', offensive: true, icon: '✝️', pattern: 'cross' }
     ],
     traps: [
         { id: 'spike', name: 'Piques', damage: 2, cost: 1, type: 'trap', icon: '📌' },
@@ -46,11 +50,15 @@ function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
+function getRandomHeroName() {
+    return HERO_NAMES[Math.floor(Math.random() * HERO_NAMES.length)];
+}
+
 function createDeck() {
     const deck = [];
     for (let i = 0; i < 60; i++) {
         const r = Math.random();
-        let pool = r < 0.65 ? CardDB.creatures : r < 0.85 ? CardDB.spells : CardDB.traps;
+        let pool = r < 0.60 ? CardDB.creatures : r < 0.85 ? CardDB.spells : CardDB.traps;
         const card = { ...pool[Math.floor(Math.random() * pool.length)], uid: `${Date.now()}-${Math.random()}-${i}` };
         if (card.type === 'creature') {
             card.currentHp = card.hp;
@@ -80,7 +88,8 @@ function createPlayerState() {
         inDeployPhase: false,
         pendingActions: [],
         confirmedField: null,
-        confirmedTraps: null
+        confirmedTraps: null,
+        heroName: getRandomHeroName()
     };
 }
 
@@ -138,7 +147,8 @@ function getPublicGameState(room, forPlayer) {
             traps: me.traps,
             graveyardCount: me.graveyard.length,
             ready: me.ready,
-            inDeployPhase: me.inDeployPhase
+            inDeployPhase: me.inDeployPhase,
+            heroName: me.heroName
         },
         opponent: {
             hp: opp.hp,
@@ -149,7 +159,8 @@ function getPublicGameState(room, forPlayer) {
             field: isPlanning && opp.confirmedField ? opp.confirmedField : opp.field,
             traps: isPlanning && opp.confirmedTraps ? opp.confirmedTraps : opp.traps,
             graveyardCount: opp.graveyard.length,
-            ready: opp.ready
+            ready: opp.ready,
+            heroName: opp.heroName
         }
     };
 }
@@ -191,6 +202,20 @@ function checkBothReady(room) {
     }
 }
 
+// Get adjacent cells for cross pattern (same side only)
+function getCrossTargets(targetPlayer, row, col) {
+    const targets = [];
+    // Up
+    if (row > 0) targets.push({ row: row - 1, col, player: targetPlayer });
+    // Down
+    if (row < 3) targets.push({ row: row + 1, col, player: targetPlayer });
+    // Left (col 0)
+    if (col > 0) targets.push({ row, col: col - 1, player: targetPlayer });
+    // Right (col 1)
+    if (col < 1) targets.push({ row, col: col + 1, player: targetPlayer });
+    return targets;
+}
+
 async function startResolution(room) {
     if (room.timer) clearInterval(room.timer);
     room.gameState.phase = 'resolution';
@@ -211,7 +236,7 @@ async function startResolution(room) {
         const actions = player.pendingActions || [];
         
         if (actions.length > 0) {
-            log(`👤 Joueur ${p} :`, 'action');
+            log(`👤 ${player.heroName} :`, 'action');
             await sleep(300);
             
             for (const action of actions) {
@@ -269,7 +294,7 @@ async function startResolution(room) {
     if (p1hp <= 0 || p2hp <= 0) {
         await sleep(500);
         const winner = p1hp <= 0 ? 2 : 1;
-        log(`🏆 JOUEUR ${winner} GAGNE!`, 'phase');
+        log(`🏆 ${room.gameState.players[winner].heroName} GAGNE!`, 'phase');
         io.to(room.code).emit('gameOver', { winner });
         return;
     }
@@ -302,47 +327,82 @@ async function applyAction(room, playerNum, action, log, sleep) {
             break;
             
         case 'spell':
-            const targetField = action.targetPlayer === playerNum ? player.field : opponent.field;
-            const target = targetField[action.row][action.col];
+            const spell = action.spell;
             
-            // Animation du sort (même si pas de cible)
+            // Animation du sort
             emitAnimation(room, 'spell', { 
                 caster: playerNum, 
                 targetPlayer: action.targetPlayer, 
                 row: action.row, 
                 col: action.col, 
-                spell: action.spell 
+                spell: spell 
             });
             await sleep(600);
             
-            if (target) {
-                // Il y a une créature à cet emplacement
-                if (action.spell.offensive && action.spell.damage) {
-                    target.currentHp -= action.spell.damage;
-                    log(`  🔥 ${action.spell.name} inflige ${action.spell.damage} dégâts à ${target.name}!`, 'damage');
-                    emitAnimation(room, 'damage', { player: action.targetPlayer, row: action.row, col: action.col, amount: action.spell.damage });
+            if (spell.pattern === 'cross') {
+                // Sort en croix - touche les cases adjacentes sur le même plateau
+                const targets = getCrossTargets(action.targetPlayer, action.row, action.col);
+                log(`  ✝️ ${spell.name} explose en croix depuis ${slotNames[action.row][action.col]}!`, 'damage');
+                
+                for (const t of targets) {
+                    const targetField = t.player === playerNum ? player.field : opponent.field;
+                    const target = targetField[t.row][t.col];
                     
-                    if (target.currentHp <= 0) {
-                        const targetOwner = action.targetPlayer === playerNum ? player : opponent;
-                        targetOwner.graveyard.push(target);
-                        targetField[action.row][action.col] = null;
-                        log(`  ☠️ ${target.name} détruit!`, 'damage');
-                        emitAnimation(room, 'death', { player: action.targetPlayer, row: action.row, col: action.col });
+                    emitAnimation(room, 'spell', { 
+                        caster: playerNum, 
+                        targetPlayer: t.player, 
+                        row: t.row, 
+                        col: t.col, 
+                        spell: spell 
+                    });
+                    
+                    if (target) {
+                        target.currentHp -= spell.damage;
+                        log(`    🔥 ${target.name} (-${spell.damage})`, 'damage');
+                        emitAnimation(room, 'damage', { player: t.player, row: t.row, col: t.col, amount: spell.damage });
+                        
+                        if (target.currentHp <= 0) {
+                            const targetOwner = t.player === playerNum ? player : opponent;
+                            targetOwner.graveyard.push(target);
+                            targetField[t.row][t.col] = null;
+                            log(`    ☠️ ${target.name} détruit!`, 'damage');
+                            emitAnimation(room, 'death', { player: t.player, row: t.row, col: t.col });
+                        }
                     }
-                }
-                if (!action.spell.offensive && action.spell.heal) {
-                    const oldHp = target.currentHp;
-                    target.currentHp = Math.min(target.hp, target.currentHp + action.spell.heal);
-                    const healed = target.currentHp - oldHp;
-                    if (healed > 0) {
-                        log(`  💚 ${action.spell.name} soigne ${target.name} (+${healed} PV)`, 'heal');
-                        emitAnimation(room, 'heal', { player: action.targetPlayer, row: action.row, col: action.col, amount: healed });
-                    }
+                    await sleep(200);
                 }
             } else {
-                // Pas de créature - le sort rate
-                log(`  💨 ${action.spell.name} n'a rien touché en ${slotNames[action.row][action.col]}`, 'action');
-                emitAnimation(room, 'spellMiss', { targetPlayer: action.targetPlayer, row: action.row, col: action.col });
+                // Sort simple
+                const targetField = action.targetPlayer === playerNum ? player.field : opponent.field;
+                const target = targetField[action.row][action.col];
+                
+                if (target) {
+                    if (spell.offensive && spell.damage) {
+                        target.currentHp -= spell.damage;
+                        log(`  🔥 ${spell.name} inflige ${spell.damage} dégâts à ${target.name}!`, 'damage');
+                        emitAnimation(room, 'damage', { player: action.targetPlayer, row: action.row, col: action.col, amount: spell.damage });
+                        
+                        if (target.currentHp <= 0) {
+                            const targetOwner = action.targetPlayer === playerNum ? player : opponent;
+                            targetOwner.graveyard.push(target);
+                            targetField[action.row][action.col] = null;
+                            log(`  ☠️ ${target.name} détruit!`, 'damage');
+                            emitAnimation(room, 'death', { player: action.targetPlayer, row: action.row, col: action.col });
+                        }
+                    }
+                    if (!spell.offensive && spell.heal) {
+                        const oldHp = target.currentHp;
+                        target.currentHp = Math.min(target.hp, target.currentHp + spell.heal);
+                        const healed = target.currentHp - oldHp;
+                        if (healed > 0) {
+                            log(`  💚 ${spell.name} soigne ${target.name} (+${healed} PV)`, 'heal');
+                            emitAnimation(room, 'heal', { player: action.targetPlayer, row: action.row, col: action.col, amount: healed });
+                        }
+                    }
+                } else {
+                    log(`  💨 ${spell.name} n'a rien touché en ${slotNames[action.row][action.col]}`, 'action');
+                    emitAnimation(room, 'spellMiss', { targetPlayer: action.targetPlayer, row: action.row, col: action.col });
+                }
             }
             
             emitStateToBoth(room);
@@ -359,11 +419,9 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
     const defenderState = room.gameState.players[defenderPlayer];
     const defenderField = defenderState.field;
     
-    // ============ PIÈGE - SE DÉCLENCHE EN PREMIER ============
-    // Le piège se déclenche AVANT tout dégât si l'attaquant peut attaquer
+    // Piège
     const trap = defenderState.traps[row];
     if (trap) {
-        // Animation piège déclenché
         emitAnimation(room, 'trapTrigger', { player: defenderPlayer, row: row, trap: trap });
         await sleep(500);
         
@@ -380,14 +438,12 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
             log(`  💫 ${attacker.name} est paralysé!`, 'trap');
         }
         
-        // Piège va au cimetière
         defenderState.graveyard.push(trap);
         defenderState.traps[row] = null;
         
         emitStateToBoth(room);
         await sleep(300);
         
-        // Vérifier si l'attaquant meurt du piège
         if (attacker.currentHp <= 0) {
             room.gameState.players[attackerPlayer].graveyard.push(attacker);
             room.gameState.players[attackerPlayer].field[row][col] = null;
@@ -395,16 +451,12 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
             emitAnimation(room, 'death', { player: attackerPlayer, row: row, col: col });
             emitStateToBoth(room);
             await sleep(300);
-            return; // L'attaquant est mort, pas de combat
+            return;
         }
         
-        // Si paralysé, l'attaquant ne peut pas attaquer ce tour
-        if (wasStunned) {
-            return; // Pas d'attaque
-        }
+        if (wasStunned) return;
     }
     
-    // ============ COMBAT NORMAL ============
     const defFront = defenderField[row][1];
     const defBack = defenderField[row][0];
     
@@ -421,7 +473,6 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
         if (canBlock) { blocker = defBack; blockerCol = 0; }
     }
     
-    // Animation d'attaque
     emitAnimation(room, 'attack', { 
         attacker: attackerPlayer, 
         row: row, 
@@ -435,9 +486,8 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
     await sleep(400);
     
     if (!blocker) {
-        // Attaque directe sur le héros
         defenderState.hp -= attacker.atk;
-        log(`⚔️ ${attacker.name} → Héros J${defenderPlayer} (-${attacker.atk})`, 'damage');
+        log(`⚔️ ${attacker.name} → ${defenderState.heroName} (-${attacker.atk})`, 'damage');
         emitAnimation(room, 'heroHit', { defender: defenderPlayer, damage: attacker.atk });
         io.to(room.code).emit('directDamage', { defender: defenderPlayer, damage: attacker.atk });
         emitStateToBoth(room);
@@ -445,12 +495,10 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
         return;
     }
     
-    // Combat avec bloqueur
     blocker.currentHp -= attacker.atk;
     log(`⚔️ ${attacker.name} → ${blocker.name} (-${attacker.atk})`, 'damage');
     emitAnimation(room, 'damage', { player: defenderPlayer, row: row, col: blockerCol, amount: attacker.atk });
     
-    // Riposte seulement si le bloqueur peut attaquer et survit
     if (blocker.canAttack && blocker.currentHp > 0) {
         await sleep(300);
         attacker.currentHp -= blocker.atk;
@@ -463,7 +511,6 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
     emitStateToBoth(room);
     await sleep(400);
     
-    // Gérer les morts
     if (blocker.currentHp <= 0) {
         defenderState.graveyard.push(blocker);
         defenderField[row][blockerCol] = null;
@@ -481,8 +528,6 @@ async function processCombat(room, attackerPlayer, row, col, log, sleep) {
 }
 
 function startNewTurn(room) {
-    console.log(`Starting turn ${room.gameState.turn + 1} for room ${room.code}`);
-    
     room.gameState.turn++;
     room.gameState.phase = 'planning';
     room.gameState.timeLeft = TURN_TIME;
@@ -623,8 +668,6 @@ io.on('connection', (socket) => {
         
         const spell = player.hand[handIndex];
         if (!spell || spell.type !== 'spell' || spell.cost > player.energy) return;
-        
-        // Les sorts peuvent cibler n'importe quelle case (vide ou pas) - stratégie par anticipation
         if (row < 0 || row > 3 || col < 0 || col > 1) return;
         
         player.energy -= spell.cost;
@@ -672,7 +715,6 @@ io.on('connection', (socket) => {
         room.gameState.players[info.playerNum].ready = true;
         io.to(room.code).emit('playerReady', info.playerNum);
         
-        console.log(`Player ${info.playerNum} ready in room ${room.code}`);
         checkBothReady(room);
     });
     
@@ -692,7 +734,6 @@ io.on('connection', (socket) => {
             }
             playerRooms.delete(socket.id);
         }
-        console.log('Disconnected:', socket.id);
     });
 });
 
