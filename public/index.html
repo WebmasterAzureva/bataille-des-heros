@@ -175,27 +175,23 @@
             background: transparent; 
             max-width: calc(50% - 150px); 
             z-index: 20;
+            align-items: flex-end;
         }
         .my-hand .card { 
-            margin-left: -50px; 
-            transition: transform 0.3s ease, margin 0.2s; 
+            margin-left: -45px; 
+            transition: transform 0.25s ease-out; 
+            flex-shrink: 0;
         }
         .my-hand .card:first-child { margin-left: 0; }
         .my-hand .card:hover:not(.unplayable):not(.dragging) { 
-            transform: translateY(-70px) scale(1.1); 
+            transform: translateY(-90px) scale(1.12); 
             z-index: 100; 
-            margin-left: 5px; 
-            margin-right: 15px; 
         }
-        .my-hand .card:hover:not(.unplayable):not(.dragging) + .card { margin-left: 5px; }
         .my-hand .card.selected { 
-            transform: translateY(-80px) scale(1.15); 
+            transform: translateY(-100px) scale(1.15); 
             z-index: 101; 
             box-shadow: 0 0 25px rgba(255,215,0,0.8); 
-            margin-left: 5px; 
-            margin-right: 15px; 
         }
-        .my-hand .card.selected + .card { margin-left: 5px; }
         
         /* MAIN ADVERSE - même taille, 50% cachée */
         .opp-hand { 
@@ -206,11 +202,12 @@
             padding: 10px 15px 0 15px;
             background: transparent;
             z-index: 20;
+            align-items: flex-end;
         }
         .opp-card-back { 
             width: 86px; /* Même taille que les cartes du joueur */
             height: 116px; 
-            margin-left: -50px; 
+            margin-left: -45px; 
             border-radius: 6px; 
             background: linear-gradient(135deg, #4a3a2a, #2a2015); 
             border: 3px solid #8b7355; 
@@ -219,6 +216,7 @@
             justify-content: center; 
             font-size: 1.8em;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            flex-shrink: 0;
         }
         .opp-card-back:first-child { margin-left: 0; }
         
