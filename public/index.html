@@ -158,6 +158,13 @@
             100% { transform: scale(1); opacity: 1; } 
         }
         
+        /* Fondu de sortie pour l'overlay */
+        .card.summon-overlay.fade-out {
+            animation: none;
+            opacity: 0;
+            transition: opacity 0.15s ease-out;
+        }
+        
         .card.healing { animation: healAnim 0.5s ease-out; }
         @keyframes healAnim { 0%, 100% { box-shadow: none; } 50% { box-shadow: 0 0 30px rgba(46,204,113,0.9); } }
         
@@ -494,18 +501,6 @@
             
             socket.on('animation', handleAnimation);
             
-            // Préparer les slots pour les invocations adverses (les cacher avant le state)
-            socket.on('prepareSummons', (slots) => {
-                slots.forEach(s => {
-                    if (s.player !== myNum) {
-                        // C'est une créature adverse, la cacher
-                        const owner = 'opp';
-                        const slotKey = `${owner}-${s.row}-${s.col}`;
-                        hiddenSlots.add(slotKey);
-                    }
-                });
-            });
-            
             socket.on('gameOver', (d) => {
                 const won = d.winner === myNum;
                 document.getElementById('result').textContent = won ? '🎉 Victoire !' : '😢 Défaite';
@@ -687,27 +682,30 @@
             }
         }
         
-        // Slots cachés pendant les animations (pour éviter double affichage)
-        let hiddenSlots = new Set();
+        // Slots en cours d'animation - render() ne doit pas les toucher
+        let animatingSlots = new Set();
         
         // Animation d'invocation - overlay indépendant du render
         function animateSummon(data) {
             // N'animer que les créatures de l'adversaire (pas les nôtres)
             if (data.animateForOpponent && data.player === myNum) {
-                // Révéler notre propre carte (retirer du set caché)
-                const owner = 'me';
-                const slotKey = `${owner}-${data.row}-${data.col}`;
-                hiddenSlots.delete(slotKey);
-                render();
-                return;
+                return; // Notre carte est déjà visible, pas besoin d'animation
             }
             
             const owner = data.player === myNum ? 'me' : 'opp';
             const slotKey = `${owner}-${data.row}-${data.col}`;
             
+            // Marquer le slot comme en animation
+            animatingSlots.add(slotKey);
+            
             // Trouver le slot cible pour sa position
             const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${data.row}"][data-col="${data.col}"]`);
             if (!slot) return;
+            
+            // Vider le slot (au cas où render() aurait déjà mis quelque chose)
+            const label = slot.querySelector('.slot-label');
+            slot.innerHTML = '';
+            if (label) slot.appendChild(label.cloneNode(true));
             
             const rect = slot.getBoundingClientRect();
             
@@ -724,12 +722,17 @@
             
             document.body.appendChild(cardEl);
             
-            // Après l'animation, révéler le slot et supprimer l'overlay
+            // Après l'animation pop (500ms)
             setTimeout(() => {
-                hiddenSlots.delete(slotKey);
+                // Retirer l'overlay
                 cardEl.remove();
+                
+                // Libérer le slot - render() pourra le mettre à jour
+                animatingSlots.delete(slotKey);
+                
+                // Forcer un render pour afficher la carte du state
                 render();
-            }, 500);
+            }, 550);
         }
         
         function animateMove(data) {
@@ -1116,6 +1119,10 @@
                     const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${r}"][data-col="${c}"]`);
                     if (!slot) continue;
                     
+                    // Si ce slot est en cours d'animation, ne pas y toucher
+                    const slotKey = `${owner}-${r}-${c}`;
+                    if (animatingSlots.has(slotKey)) continue;
+                    
                     const label = slot.querySelector('.slot-label');
                     slot.innerHTML = '';
                     if (label) slot.appendChild(label.cloneNode(true));
@@ -1123,11 +1130,7 @@
                     slot.classList.remove('has-card');
                     const card = field[r][c];
                     
-                    // Vérifier si ce slot est caché (animation en cours)
-                    const slotKey = `${owner}-${r}-${c}`;
-                    const isHidden = hiddenSlots.has(slotKey);
-                    
-                    if (card && !isHidden) {
+                    if (card) {
                         slot.classList.add('has-card');
                         const cardEl = makeCard(card, false);
                         
