@@ -135,7 +135,6 @@
         .card.just-played::after { content: '💤'; position: absolute; top: 2px; right: 2px; font-size: 0.7em; }
         .card.can-attack { box-shadow: 0 0 10px rgba(231,76,60,0.6); }
         .card.field-selected { box-shadow: 0 0 15px rgba(52,152,219,0.9); border-color: #3498db !important; }
-        .card.unplayable { opacity: 0.3 !important; filter: grayscale(80%); cursor: not-allowed !important; }
         
         /* ANIMATIONS */
         .card.attacking { animation: attackAnim 0.4s ease-out; }
@@ -183,7 +182,7 @@
             flex-shrink: 0;
         }
         .my-hand .card:first-child { margin-left: 0; }
-        .my-hand .card:hover:not(.unplayable):not(.dragging) { 
+        .my-hand .card:hover:not(.dragging) { 
             transform: translateY(-90px) scale(1.12); 
             z-index: 100; 
         }
@@ -217,8 +216,13 @@
             font-size: 1.8em;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             flex-shrink: 0;
+            transition: transform 0.25s ease-out;
         }
         .opp-card-back:first-child { margin-left: 0; }
+        .opp-card-back:hover {
+            transform: translateY(-90px) scale(1.12);
+            z-index: 100;
+        }
         
         .log-btn { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); padding: 8px 20px; background: rgba(60,50,40,0.9); border: 2px solid #8b7355; border-radius: 20px; cursor: pointer; font-size: 0.75em; z-index: 30; }
         .log-popup { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); width: 400px; max-height: 280px; background: rgba(20,20,40,0.98); border: 2px solid #8b7355; border-radius: 12px; padding: 12px; display: none; z-index: 100; }
@@ -953,16 +957,13 @@
                 const el = makeCard(card, true);
                 el.dataset.idx = i;
                 
-                if (card.cost > energy) {
-                    el.classList.add('unplayable');
-                    el.draggable = false;
-                } else {
-                    el.draggable = true;
-                }
+                // Toujours draggable visuellement, mais le drag sera annulé si pas assez de mana
+                el.draggable = true;
                 
                 el.onclick = (e) => { e.stopPropagation(); selectCard(i); };
                 
                 el.ondragstart = (e) => {
+                    // Vérifier le coût en mana au moment du drag
                     if (card.cost > energy || !canPlay()) { e.preventDefault(); return; }
                     dragged = { ...card, idx: i };
                     draggedFromField = null;
