@@ -72,14 +72,19 @@ function createPlayerState() {
         maxEnergy: 1,
         deck,
         hand,
-        // field[row][col] : row 0-3, col 0=arrière (A,C,E,G), col 1=avant (B,D,F,H)
         field: Array(4).fill(null).map(() => Array(2).fill(null)),
-        // traps[row] : 4 pièges, un par rangée
         traps: [null, null, null, null],
         graveyard: [],
         ready: false,
         connected: false,
-        inDeployPhase: false // true = ne peut plus redéployer
+        inDeployPhase: false,
+        // Pending actions - revealed only at resolution
+        pendingActions: [],
+        // Temporary state for current turn (what player sees)
+        pendingField: null,
+        pendingTraps: null,
+        pendingHand: null,
+        pendingEnergy: null
     };
 }
 
@@ -92,17 +97,25 @@ function createGameState() {
     };
 }
 
-// Nom des slots pour l'affichage
-const slotNames = [
-    ['A', 'B'], // row 0
-    ['C', 'D'], // row 1
-    ['E', 'F'], // row 2
-    ['G', 'H']  // row 3
-];
+// Initialize pending state at start of turn
+function initPendingState(player) {
+    player.pendingField = JSON.parse(JSON.stringify(player.field));
+    player.pendingTraps = JSON.parse(JSON.stringify(player.traps));
+    player.pendingHand = JSON.parse(JSON.stringify(player.hand));
+    player.pendingEnergy = player.energy;
+    player.pendingActions = [];
+    player.inDeployPhase = false;
+}
 
+// Get state for a player - shows their pending changes but opponent's confirmed state
 function getPublicGameState(room, forPlayer) {
     const state = room.gameState;
     const opponent = forPlayer === 1 ? 2 : 1;
+    const me = state.players[forPlayer];
+    const opp = state.players[opponent];
+    
+    // During planning, show pending state to self but confirmed state of opponent
+    const isPlanning = state.phase === 'planning';
     
     return {
         turn: state.turn,
@@ -110,27 +123,27 @@ function getPublicGameState(room, forPlayer) {
         timeLeft: state.timeLeft,
         myPlayer: forPlayer,
         me: {
-            hp: state.players[forPlayer].hp,
-            energy: state.players[forPlayer].energy,
-            maxEnergy: state.players[forPlayer].maxEnergy,
-            hand: state.players[forPlayer].hand,
-            deckCount: state.players[forPlayer].deck.length,
-            field: state.players[forPlayer].field,
-            traps: state.players[forPlayer].traps,
-            graveyardCount: state.players[forPlayer].graveyard.length,
-            ready: state.players[forPlayer].ready,
-            inDeployPhase: state.players[forPlayer].inDeployPhase
+            hp: me.hp,
+            energy: isPlanning && me.pendingEnergy !== null ? me.pendingEnergy : me.energy,
+            maxEnergy: me.maxEnergy,
+            hand: isPlanning && me.pendingHand ? me.pendingHand : me.hand,
+            deckCount: me.deck.length,
+            field: isPlanning && me.pendingField ? me.pendingField : me.field,
+            traps: isPlanning && me.pendingTraps ? me.pendingTraps : me.traps,
+            graveyardCount: me.graveyard.length,
+            ready: me.ready,
+            inDeployPhase: me.inDeployPhase
         },
         opponent: {
-            hp: state.players[opponent].hp,
-            energy: state.players[opponent].energy,
-            maxEnergy: state.players[opponent].maxEnergy,
-            handCount: state.players[opponent].hand.length,
-            deckCount: state.players[opponent].deck.length,
-            field: state.players[opponent].field,
-            trapsCount: state.players[opponent].traps.filter(t => t !== null).length,
-            graveyardCount: state.players[opponent].graveyard.length,
-            ready: state.players[opponent].ready
+            hp: opp.hp,
+            energy: opp.energy, // Always confirmed state
+            maxEnergy: opp.maxEnergy,
+            handCount: isPlanning && opp.pendingHand ? opp.pendingHand.length : opp.hand.length,
+            deckCount: opp.deck.length,
+            field: opp.field, // Always confirmed state - don't show pending!
+            trapsCount: opp.traps.filter(t => t !== null).length, // Confirmed traps only
+            graveyardCount: opp.graveyard.length,
+            ready: opp.ready
         }
     };
 }
@@ -140,10 +153,12 @@ function startTurnTimer(room) {
     room.gameState.timeLeft = TURN_TIME;
     room.gameState.phase = 'planning';
     
+    // Initialize pending state for both players
+    initPendingState(room.gameState.players[1]);
+    initPendingState(room.gameState.players[2]);
+    
     room.gameState.players[1].ready = false;
     room.gameState.players[2].ready = false;
-    room.gameState.players[1].inDeployPhase = false;
-    room.gameState.players[2].inDeployPhase = false;
     
     room.timer = setInterval(() => {
         room.gameState.timeLeft--;
@@ -177,9 +192,36 @@ async function startResolution(room) {
     };
     
     log(`⚔️ RÉSOLUTION DU TOUR ${room.gameState.turn}`, 'phase');
+    await sleep(600);
+    
+    // 1. Apply all pending actions in order
+    log('📋 Application des actions...', 'phase');
+    await sleep(400);
+    
+    for (let p = 1; p <= 2; p++) {
+        const player = room.gameState.players[p];
+        const actions = player.pendingActions;
+        
+        if (actions.length > 0) {
+            log(`👤 Joueur ${p} :`, 'action');
+            await sleep(300);
+        }
+        
+        for (const action of actions) {
+            await applyAction(room, p, action, log, emitState, sleep);
+        }
+        
+        // Clear pending state - apply to real state
+        player.field = player.pendingField ? JSON.parse(JSON.stringify(player.pendingField)) : player.field;
+        player.traps = player.pendingTraps ? JSON.parse(JSON.stringify(player.pendingTraps)) : player.traps;
+        player.hand = player.pendingHand ? JSON.parse(JSON.stringify(player.pendingHand)) : player.hand;
+        player.energy = player.pendingEnergy !== null ? player.pendingEnergy : player.energy;
+    }
+    
+    emitState();
     await sleep(500);
     
-    // 1. Pioche
+    // 2. Draw phase
     for (let p = 1; p <= 2; p++) {
         const player = room.gameState.players[p];
         if (player.deck.length > 0) {
@@ -194,21 +236,20 @@ async function startResolution(room) {
     }
     log('📦 Les joueurs piochent une carte', 'action');
     emitState();
+    await sleep(500);
+    
+    // 3. Combat phase
+    log('⚔️ Phase de combat', 'phase');
     await sleep(400);
     
-    // 2. Combat par rangée
-    log('⚔️ Phase de combat', 'phase');
-    await sleep(300);
-    
     for (let row = 0; row < 4; row++) {
-        // Attaque depuis l'avant (col 1) puis l'arrière (col 0)
         for (let col = 1; col >= 0; col--) {
             await processCombat(room, 1, row, col, log, emitState, sleep);
             await processCombat(room, 2, row, col, log, emitState, sleep);
         }
     }
     
-    // 3. Activer cartes pour prochain tour
+    // 4. Activate cards for next turn
     for (let p = 1; p <= 2; p++) {
         for (let r = 0; r < 4; r++) {
             for (let c = 0; c < 2; c++) {
@@ -222,7 +263,7 @@ async function startResolution(room) {
         }
     }
     
-    // Victoire ?
+    // Check victory
     const p1hp = room.gameState.players[1].hp;
     const p2hp = room.gameState.players[2].hp;
     
@@ -238,6 +279,64 @@ async function startResolution(room) {
     startNewTurn(room);
 }
 
+async function applyAction(room, playerNum, action, log, emitState, sleep) {
+    const player = room.gameState.players[playerNum];
+    const opponent = room.gameState.players[playerNum === 1 ? 2 : 1];
+    
+    const slotNames = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
+    
+    switch (action.type) {
+        case 'place':
+            const slotName = slotNames[action.row][action.col] + playerNum;
+            log(`  🎴 ${action.card.name} posé en ${slotName}`, 'action');
+            emitState();
+            await sleep(400);
+            break;
+            
+        case 'move':
+            const fromName = slotNames[action.fromRow][action.fromCol] + playerNum;
+            const toName = slotNames[action.toRow][action.toCol] + playerNum;
+            log(`  ↔️ ${action.card.name} déplacé ${fromName} → ${toName}`, 'action');
+            emitState();
+            await sleep(300);
+            break;
+            
+        case 'trap':
+            log(`  🪤 Piège posé en rangée ${action.row + 1}`, 'action');
+            emitState();
+            await sleep(300);
+            break;
+            
+        case 'spell':
+            // Apply spell during resolution
+            const target = action.targetPlayer === playerNum 
+                ? player.field[action.row][action.col]
+                : opponent.field[action.row][action.col];
+            
+            if (target) {
+                if (action.spell.offensive && action.spell.damage) {
+                    target.currentHp -= action.spell.damage;
+                    log(`  🔥 ${action.spell.name} inflige ${action.spell.damage} dégâts à ${target.name}!`, 'damage');
+                    
+                    if (target.currentHp <= 0) {
+                        const targetOwner = action.targetPlayer === playerNum ? player : opponent;
+                        targetOwner.graveyard.push(target);
+                        targetOwner.field[action.row][action.col] = null;
+                        log(`  ☠️ ${target.name} détruit!`, 'damage');
+                    }
+                }
+                if (!action.spell.offensive && action.spell.heal) {
+                    const oldHp = target.currentHp;
+                    target.currentHp = Math.min(target.hp, target.currentHp + action.spell.heal);
+                    log(`  💚 ${action.spell.name} soigne ${target.name} (+${target.currentHp - oldHp} PV)`, 'heal');
+                }
+            }
+            emitState();
+            await sleep(500);
+            break;
+    }
+}
+
 async function processCombat(room, attackerPlayer, row, col, log, emitState, sleep) {
     const attacker = room.gameState.players[attackerPlayer].field[row][col];
     if (!attacker || !attacker.canAttack) return;
@@ -245,17 +344,13 @@ async function processCombat(room, attackerPlayer, row, col, log, emitState, sle
     const defenderPlayer = attackerPlayer === 1 ? 2 : 1;
     const defenderField = room.gameState.players[defenderPlayer].field;
     
-    // Chercher un bloqueur sur la même rangée
-    const defFront = defenderField[row][1]; // Position avant de l'adversaire
-    const defBack = defenderField[row][0];  // Position arrière de l'adversaire
+    const defFront = defenderField[row][1];
+    const defBack = defenderField[row][0];
     
     const fly = attacker.abilities.includes('fly');
-    const shooter = attacker.abilities.includes('shooter');
     
-    // Logique de blocage
     let blocker = null, blockerCol = -1;
     
-    // Si l'attaquant vole, il ne peut être bloqué que par volants/tireurs
     if (defFront) {
         const canBlock = !fly || defFront.abilities.includes('fly') || defFront.abilities.includes('shooter');
         if (canBlock) { blocker = defFront; blockerCol = 1; }
@@ -265,16 +360,15 @@ async function processCombat(room, attackerPlayer, row, col, log, emitState, sle
         if (canBlock) { blocker = defBack; blockerCol = 0; }
     }
     
-    // Piège ?
+    // Trap check
     const trap = room.gameState.players[defenderPlayer].traps[row];
     if (trap && !blocker) {
-        const rowName = slotNames[row][0];
         log(`🪤 Piège "${trap.name}" déclenché sur ${attacker.name}!`, 'trap');
         if (trap.damage) attacker.currentHp -= trap.damage;
         if (trap.effect === 'stun') attacker.stunned = true;
         room.gameState.players[defenderPlayer].traps[row] = null;
         emitState();
-        await sleep(300);
+        await sleep(400);
         
         if (attacker.currentHp <= 0) {
             room.gameState.players[attackerPlayer].graveyard.push(attacker);
@@ -286,31 +380,25 @@ async function processCombat(room, attackerPlayer, row, col, log, emitState, sle
         if (attacker.stunned) { delete attacker.stunned; return; }
     }
     
-    const rowName = slotNames[row][col === 0 ? 0 : 1];
-    
     if (!blocker) {
-        // Dégâts directs au héros
         room.gameState.players[defenderPlayer].hp -= attacker.atk;
-        log(`⚔️ ${attacker.name} (${rowName}${attackerPlayer}) → Héros J${defenderPlayer} (-${attacker.atk})`, 'damage');
+        log(`⚔️ ${attacker.name} → Héros J${defenderPlayer} (-${attacker.atk})`, 'damage');
         io.to(room.code).emit('directDamage', { defender: defenderPlayer, damage: attacker.atk });
         emitState();
         await sleep(400);
         return;
     }
     
-    // Combat avec bloqueur
-    const blockerName = slotNames[row][blockerCol === 0 ? 0 : 1];
     blocker.currentHp -= attacker.atk;
     log(`⚔️ ${attacker.name} → ${blocker.name} (-${attacker.atk})`, 'damage');
     
-    // Riposte si le bloqueur peut attaquer
     if (blocker.canAttack && blocker.currentHp > 0) {
         attacker.currentHp -= blocker.atk;
         log(`↩️ ${blocker.name} riposte (-${blocker.atk})`, 'damage');
     }
     
     emitState();
-    await sleep(300);
+    await sleep(400);
     
     if (blocker.currentHp <= 0) {
         room.gameState.players[defenderPlayer].graveyard.push(blocker);
@@ -323,7 +411,7 @@ async function processCombat(room, attackerPlayer, row, col, log, emitState, sle
         log(`☠️ ${attacker.name} détruit!`, 'damage');
     }
     emitState();
-    await sleep(200);
+    await sleep(300);
 }
 
 function startNewTurn(room) {
@@ -335,6 +423,7 @@ function startNewTurn(room) {
         player.energy = player.maxEnergy;
         player.ready = false;
         player.inDeployPhase = false;
+        player.pendingActions = [];
         
         for (let r = 0; r < 4; r++) {
             for (let c = 0; c < 2; c++) {
@@ -359,17 +448,13 @@ function startNewTurn(room) {
     startTurnTimer(room);
 }
 
-// Vérifie si une créature peut aller à une position
 function canPlaceAt(card, col) {
     const shooter = card.abilities?.includes('shooter');
     const fly = card.abilities?.includes('fly');
     
-    // col 0 = arrière (A,C,E,G) - pour tireurs
-    // col 1 = avant (B,D,F,H) - pour créatures normales
-    
-    if (fly) return true; // Vol peut aller partout
-    if (shooter) return col === 0; // Tireur à l'arrière uniquement
-    return col === 1; // Normal à l'avant uniquement
+    if (fly) return true;
+    if (shooter) return col === 0;
+    return col === 1;
 }
 
 // ==================== SOCKET HANDLERS ====================
@@ -414,14 +499,13 @@ io.on('connection', (socket) => {
         if (player.ready) return;
         
         const { handIndex, row, col } = data;
-        const card = player.hand[handIndex];
-        if (!card || card.type !== 'creature' || card.cost > player.energy) return;
-        if (player.field[row][col]) return; // Slot occupé
-        
-        // Vérifier les règles de placement
+        const card = player.pendingHand[handIndex];
+        if (!card || card.type !== 'creature' || card.cost > player.pendingEnergy) return;
+        if (player.pendingField[row][col]) return;
         if (!canPlaceAt(card, col)) return;
         
-        player.energy -= card.cost;
+        // Apply to pending state
+        player.pendingEnergy -= card.cost;
         const placed = { 
             ...card, 
             turnsOnField: 0, 
@@ -429,15 +513,15 @@ io.on('connection', (socket) => {
             currentHp: card.hp, 
             movedThisTurn: false 
         };
-        player.field[row][col] = placed;
-        player.hand.splice(handIndex, 1);
-        player.inDeployPhase = true; // Passe en phase de pose
+        player.pendingField[row][col] = placed;
+        player.pendingHand.splice(handIndex, 1);
+        player.inDeployPhase = true;
         
+        // Record action for resolution
+        player.pendingActions.push({ type: 'place', card: placed, row, col });
+        
+        // Only update the player who made the action
         socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
-        const oppNum = info.playerNum === 1 ? 2 : 1;
-        if (room.players[oppNum]) {
-            io.to(room.players[oppNum]).emit('gameStateUpdate', getPublicGameState(room, oppNum));
-        }
     });
     
     socket.on('moveCard', (data) => {
@@ -447,29 +531,26 @@ io.on('connection', (socket) => {
         if (!room || room.gameState.phase !== 'planning') return;
         
         const player = room.gameState.players[info.playerNum];
-        if (player.ready || player.inDeployPhase) return; // Ne peut plus redéployer si en phase de pose
+        if (player.ready || player.inDeployPhase) return;
         
         const { fromRow, fromCol, toRow, toCol } = data;
-        const card = player.field[fromRow][fromCol];
+        const card = player.pendingField[fromRow][fromCol];
         if (!card || card.movedThisTurn) return;
-        if (player.field[toRow][toCol]) return; // Destination occupée
+        if (player.pendingField[toRow][toCol]) return;
         
-        // Vérifier mouvement adjacent vertical uniquement (même colonne, rangée ±1)
-        if (fromCol !== toCol) return; // Pas de changement de colonne
-        if (Math.abs(toRow - fromRow) !== 1) return; // Doit être adjacent verticalement
-        
-        // Vérifier que la destination respecte les règles de placement
+        if (fromCol !== toCol) return;
+        if (Math.abs(toRow - fromRow) !== 1) return;
         if (!canPlaceAt(card, toCol)) return;
         
+        // Apply to pending state
         card.movedThisTurn = true;
-        player.field[toRow][toCol] = card;
-        player.field[fromRow][fromCol] = null;
+        player.pendingField[toRow][toCol] = card;
+        player.pendingField[fromRow][fromCol] = null;
+        
+        // Record action
+        player.pendingActions.push({ type: 'move', card, fromRow, fromCol, toRow, toCol });
         
         socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
-        const oppNum = info.playerNum === 1 ? 2 : 1;
-        if (room.players[oppNum]) {
-            io.to(room.players[oppNum]).emit('gameStateUpdate', getPublicGameState(room, oppNum));
-        }
     });
     
     socket.on('castSpell', (data) => {
@@ -482,33 +563,27 @@ io.on('connection', (socket) => {
         if (player.ready) return;
         
         const { handIndex, targetPlayer, row, col } = data;
-        const spell = player.hand[handIndex];
-        if (!spell || spell.type !== 'spell' || spell.cost > player.energy) return;
+        const spell = player.pendingHand[handIndex];
+        if (!spell || spell.type !== 'spell' || spell.cost > player.pendingEnergy) return;
         
-        const target = room.gameState.players[targetPlayer].field[row][col];
+        // Check target exists (in confirmed state for opponent, pending for self)
+        let target;
+        if (targetPlayer === info.playerNum) {
+            target = player.pendingField[row][col];
+        } else {
+            target = room.gameState.players[targetPlayer].field[row][col];
+        }
         if (!target) return;
         
-        player.energy -= spell.cost;
-        
-        if (spell.offensive && spell.damage) {
-            target.currentHp -= spell.damage;
-            if (target.currentHp <= 0) {
-                room.gameState.players[targetPlayer].graveyard.push(target);
-                room.gameState.players[targetPlayer].field[row][col] = null;
-            }
-        }
-        if (!spell.offensive && spell.heal) {
-            target.currentHp = Math.min(target.hp, target.currentHp + spell.heal);
-        }
-        
-        player.hand.splice(handIndex, 1);
+        // Apply cost to pending state
+        player.pendingEnergy -= spell.cost;
+        player.pendingHand.splice(handIndex, 1);
         player.inDeployPhase = true;
         
+        // Record action - spell effect applied during resolution
+        player.pendingActions.push({ type: 'spell', spell, targetPlayer, row, col });
+        
         socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
-        const oppNum = info.playerNum === 1 ? 2 : 1;
-        if (room.players[oppNum]) {
-            io.to(room.players[oppNum]).emit('gameStateUpdate', getPublicGameState(room, oppNum));
-        }
     });
     
     socket.on('placeTrap', (data) => {
@@ -521,14 +596,18 @@ io.on('connection', (socket) => {
         if (player.ready) return;
         
         const { handIndex, trapIndex } = data;
-        const trap = player.hand[handIndex];
-        if (!trap || trap.type !== 'trap' || trap.cost > player.energy) return;
-        if (player.traps[trapIndex]) return;
+        const trap = player.pendingHand[handIndex];
+        if (!trap || trap.type !== 'trap' || trap.cost > player.pendingEnergy) return;
+        if (player.pendingTraps[trapIndex]) return;
         
-        player.energy -= trap.cost;
-        player.traps[trapIndex] = trap;
-        player.hand.splice(handIndex, 1);
+        // Apply to pending state
+        player.pendingEnergy -= trap.cost;
+        player.pendingTraps[trapIndex] = trap;
+        player.pendingHand.splice(handIndex, 1);
         player.inDeployPhase = true;
+        
+        // Record action
+        player.pendingActions.push({ type: 'trap', trap, row: trapIndex });
         
         socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
     });
