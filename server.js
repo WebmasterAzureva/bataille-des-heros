@@ -250,32 +250,46 @@ async function startResolution(room) {
         }
     }
     
-    // 1. REDÉPLOIEMENTS
+    // 1. REDÉPLOIEMENTS - Envoyer le state AVANT les moves pour voir les positions d'origine
     if (allActions.moves.length > 0) {
         log('🔄 Redéploiements', 'phase');
         await sleep(600);
         
+        // Envoyer toutes les animations de move d'abord
         for (const action of allActions.moves) {
             log(`  ↔️ ${action.heroName}: ${action.card.name} ${slotNames[action.fromRow][action.fromCol]} → ${slotNames[action.toRow][action.toCol]}`, 'action');
-            emitAnimation(room, 'move', { player: action.playerNum, fromRow: action.fromRow, fromCol: action.fromCol, toRow: action.toRow, toCol: action.toCol });
-            emitStateToBoth(room);
+            emitAnimation(room, 'move', { 
+                player: action.playerNum, 
+                fromRow: action.fromRow, 
+                fromCol: action.fromCol, 
+                toRow: action.toRow, 
+                toCol: action.toCol,
+                card: action.card
+            });
             await sleep(800);
         }
+        // State sera envoyé après les summons
     }
     
-    // 2. POSES DE CRÉATURES (animation seulement pour l'adversaire de chaque joueur)
+    // 2. POSES DE CRÉATURES 
     if (allActions.places.length > 0) {
         log('🎴 Invocations', 'phase');
         await sleep(600);
         
+        // Informer le client des slots qui vont recevoir des créatures adverses (pour les cacher)
+        const summonSlots = allActions.places.map(a => ({ player: a.playerNum, row: a.row, col: a.col }));
+        io.to(room.code).emit('prepareSummons', summonSlots);
+        
         for (const action of allActions.places) {
             log(`  🎴 ${action.heroName}: ${action.card.name} en ${slotNames[action.row][action.col]}`, 'action');
-            // L'animation sera filtrée côté client - chaque joueur ne voit l'animation que pour les créatures adverses
             emitAnimation(room, 'summon', { player: action.playerNum, row: action.row, col: action.col, card: action.card, animateForOpponent: true });
-            emitStateToBoth(room);
             await sleep(800);
         }
     }
+    
+    // Maintenant envoyer le state complet (après moves et summons)
+    emitStateToBoth(room);
+    await sleep(300);
     
     // 3. SORTS DÉFENSIFS (soins)
     if (allActions.spellsDefensive.length > 0) {
@@ -305,9 +319,9 @@ async function startResolution(room) {
         for (const action of allActions.traps) {
             log(`  🪤 ${action.heroName}: Piège en rangée ${action.row + 1}`, 'action');
             emitAnimation(room, 'trapPlace', { player: action.playerNum, row: action.row });
-            emitStateToBoth(room);
             await sleep(600);
         }
+        emitStateToBoth(room);
     }
     
     emitStateToBoth(room);
