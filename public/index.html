@@ -41,7 +41,7 @@
         .player-name.opp { background: linear-gradient(135deg, #6a2a4a, #5a1a3a); border: 2px solid #9a4a7c; }
         .options-btn { width: 35px; height: 35px; border-radius: 50%; background: #5a4a3a; border: 2px solid #8b7355; cursor: pointer; font-size: 1em; }
         
-        .header-center { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 15px; }
+        .header-center { position: absolute; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
         .header-timer { font-size: 1.8em; font-weight: bold; color: #e74c3c; text-shadow: 0 0 15px rgba(231,76,60,0.8); min-width: 50px; text-align: center; display: none; }
         .header-timer.visible { display: block; }
         .header-timer.urgent { animation: timerPulse 0.5s infinite; }
@@ -55,7 +55,8 @@
         .end-turn-btn:hover:not(.waiting) { transform: translateX(-50%) scale(1.08); box-shadow: 0 6px 25px rgba(255,107,53,0.5); }
         .end-turn-btn.waiting { background: radial-gradient(circle at 30% 30%, #666, #444); border-color: #888; cursor: default; }
         
-        .phase-indicator { position: absolute; top: 155px; left: 50%; transform: translateX(-50%); padding: 8px 25px; background: rgba(46,204,113,0.9); border-radius: 20px; border: 2px solid #58d68d; font-size: 0.8em; z-index: 90; white-space: nowrap; opacity: 1; transition: opacity 0.5s ease-out; }
+        .phase-indicator { padding: 6px 20px; background: rgba(46,204,113,0.9); border-radius: 15px; border: 2px solid #58d68d; font-size: 0.75em; white-space: nowrap; opacity: 1; transition: opacity 0.5s ease-out; display: none; margin-top: 5px; }
+        .phase-indicator.visible { display: block; }
         .phase-indicator.fade-out { opacity: 0; }
         .phase-indicator.redeploy { background: rgba(52,152,219,0.9); border-color: #5dade2; }
         .phase-indicator.deploy { background: rgba(46,204,113,0.9); border-color: #58d68d; }
@@ -240,11 +241,11 @@
         }
         .my-hand .card:first-child { margin-left: 0; }
         .my-hand .card:hover:not(.dragging) { 
-            transform: translateY(-90px) scale(1.15); 
+            transform: translateY(-180px) scale(1.4); 
             z-index: 100 !important;
         }
         .my-hand .card.selected { 
-            transform: translateY(-100px) scale(1.18); 
+            transform: translateY(-190px) scale(1.45); 
             z-index: 101 !important; 
             box-shadow: 0 0 25px rgba(255,215,0,0.8); 
         }
@@ -294,6 +295,73 @@
         .log-heal { background: rgba(46,204,113,0.2); color: #58d68d; }
         .log-trap { background: rgba(155,89,182,0.2); color: #bb8fce; }
         
+        /* Cimetière cliquable */
+        .grave-box.clickable { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .grave-box.clickable:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(255,215,0,0.5); }
+        
+        /* Popup cimetière */
+        .graveyard-popup { 
+            position: fixed; 
+            bottom: 80px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: rgba(20, 20, 40, 0.85); 
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 2px solid rgba(139, 115, 85, 0.6); 
+            border-radius: 15px; 
+            padding: 15px 20px; 
+            z-index: 500;
+            display: none;
+            max-width: 90vw;
+        }
+        .graveyard-popup.active { display: block; }
+        .graveyard-popup-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(139, 115, 85, 0.4);
+        }
+        .graveyard-popup-title { 
+            color: #ffd700; 
+            font-size: 1em; 
+            font-weight: bold;
+        }
+        .graveyard-popup-close { 
+            background: rgba(231, 76, 60, 0.8); 
+            border: none; 
+            color: white; 
+            width: 28px; 
+            height: 28px; 
+            border-radius: 50%; 
+            cursor: pointer; 
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .graveyard-popup-close:hover { background: #e74c3c; }
+        .graveyard-cards { 
+            display: flex; 
+            gap: 10px; 
+            overflow-x: auto; 
+            padding: 10px 5px;
+            min-height: 140px;
+        }
+        .graveyard-cards::-webkit-scrollbar { height: 8px; }
+        .graveyard-cards::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 4px; }
+        .graveyard-cards::-webkit-scrollbar-thumb { background: rgba(139, 115, 85, 0.6); border-radius: 4px; }
+        .graveyard-cards .card { flex-shrink: 0; }
+        .graveyard-empty { 
+            color: #888; 
+            font-style: italic; 
+            text-align: center; 
+            padding: 40px;
+            width: 300px;
+        }
+        
         .game-over { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .game-over.hidden { display: none; }
         .game-over-box { text-align: center; padding: 40px; background: rgba(30,30,50,0.98); border-radius: 15px; border: 4px solid #ffd700; }
@@ -324,7 +392,7 @@
     <div class="game-container" id="game-container">
         <div class="top-bar">
             <div class="player-info-bar">
-                <div class="rank-badge">Rang</div>
+                <div class="rank-badge">Platine</div>
                 <div class="player-name me" id="me-name">Joueur 1</div>
                 <div class="energy-display">
                     <div class="mana-orb" id="me-energy">1</div>
@@ -333,6 +401,7 @@
             </div>
             <div class="header-center">
                 <span class="header-timer" id="header-timer">15</span>
+                <div class="phase-indicator deploy" id="phase-indicator">🔄 Phase de Redéploiement</div>
             </div>
             <div class="player-info-bar">
                 <div class="energy-display">
@@ -340,7 +409,7 @@
                     <div class="mana-orb" id="opp-energy">1</div>
                 </div>
                 <div class="player-name opp" id="opp-name">Joueur 2</div>
-                <div class="rank-badge">Rang</div>
+                <div class="rank-badge">Platine</div>
                 <button class="options-btn">⚙️</button>
             </div>
         </div>
@@ -350,8 +419,6 @@
             <span>FIN DU</span>
             <span>TOUR</span>
         </button>
-        
-        <div class="phase-indicator deploy" id="phase-indicator">🔄 Phase de Redéploiement</div>
         
         <div class="side-panel left">
             <div class="hero-card" id="hero-me">
@@ -366,7 +433,7 @@
                     <div class="deck-count" id="me-deck">53</div>
                     <div>DECK</div>
                 </div>
-                <div class="grave-box">
+                <div class="grave-box clickable" id="me-grave-box" onclick="openGraveyard('me')">
                     <div class="deck-icon">☠️</div>
                     <div class="deck-count" id="me-grave">0</div>
                     <div>CIMETIÈRE</div>
@@ -387,7 +454,7 @@
                     <div class="deck-count" id="opp-deck">53</div>
                     <div>DECK</div>
                 </div>
-                <div class="grave-box">
+                <div class="grave-box clickable" id="opp-grave-box" onclick="openGraveyard('opp')">
                     <div class="deck-icon">☠️</div>
                     <div class="deck-count" id="opp-grave">0</div>
                     <div>CIMETIÈRE</div>
@@ -407,6 +474,17 @@
         </div>
     </div>
     
+    <!-- Popup Cimetière -->
+    <div class="graveyard-popup" id="graveyard-popup">
+        <div class="graveyard-popup-header">
+            <span class="graveyard-popup-title" id="graveyard-popup-title">☠️ Cimetière</span>
+            <button class="graveyard-popup-close" onclick="closeGraveyard()">✕</button>
+        </div>
+        <div class="graveyard-cards" id="graveyard-cards">
+            <div class="graveyard-empty">Aucune carte au cimetière</div>
+        </div>
+    </div>
+
     <div class="game-over hidden" id="game-over">
         <div class="game-over-box">
             <div class="game-over-title">🏆 Fin de Partie</div>
@@ -839,15 +917,27 @@
         function showPhaseMessage(text, type) {
             const el = document.getElementById('phase-indicator');
             el.textContent = text;
-            el.className = 'phase-indicator ' + type;
+            el.className = 'phase-indicator ' + type + ' visible';
             el.classList.remove('fade-out');
             
             // Message éphémère sauf pour resolution
             if (type !== 'resolution') {
                 setTimeout(() => {
                     el.classList.add('fade-out');
+                    // Cacher complètement après le fade
+                    setTimeout(() => {
+                        el.classList.remove('visible');
+                    }, 500);
                 }, 2000);
             }
+        }
+        
+        function hidePhaseMessage() {
+            const el = document.getElementById('phase-indicator');
+            el.classList.add('fade-out');
+            setTimeout(() => {
+                el.classList.remove('visible');
+            }, 500);
         }
         
         function updatePhaseDisplay() {
@@ -855,12 +945,13 @@
             
             if (state.phase === 'resolution') {
                 showPhaseMessage('⚔️ Résolution du Combat', 'resolution');
+            } else {
+                hidePhaseMessage();
             }
-            // Les autres phases sont gérées par showPhaseMessage appelé manuellement
         }
         
         function setupHeroes() {
-            document.getElementById('me-name').textContent = state.me.heroName + ' (Vous)';
+            document.getElementById('me-name').textContent = state.me.heroName;
             document.getElementById('opp-name').textContent = state.opponent.heroName;
             document.getElementById('me-hero-name').textContent = state.me.heroName;
             document.getElementById('opp-hero-name').textContent = state.opponent.heroName;
@@ -1438,6 +1529,44 @@
             document.getElementById('end-turn-btn').classList.add('waiting');
             socket.emit('ready');
         }
+        
+        function openGraveyard(owner) {
+            const popup = document.getElementById('graveyard-popup');
+            const title = document.getElementById('graveyard-popup-title');
+            const container = document.getElementById('graveyard-cards');
+            
+            const graveyard = owner === 'me' ? state.me.graveyard : state.opponent.graveyard;
+            const playerName = owner === 'me' ? state.me.heroName : state.opponent.heroName;
+            
+            title.textContent = `☠️ Cimetière de ${playerName}`;
+            container.innerHTML = '';
+            
+            if (!graveyard || graveyard.length === 0) {
+                container.innerHTML = '<div class="graveyard-empty">Aucune carte au cimetière</div>';
+            } else {
+                graveyard.forEach(card => {
+                    const cardEl = makeCard(card, false);
+                    container.appendChild(cardEl);
+                });
+            }
+            
+            popup.classList.add('active');
+        }
+        
+        function closeGraveyard() {
+            document.getElementById('graveyard-popup').classList.remove('active');
+        }
+        
+        // Fermer le popup cimetière en cliquant ailleurs
+        document.addEventListener('click', (e) => {
+            const popup = document.getElementById('graveyard-popup');
+            if (popup.classList.contains('active')) {
+                if (!popup.contains(e.target) && !e.target.closest('.grave-box')) {
+                    closeGraveyard();
+                }
+            }
+        });
+        
         
         function clearSel() {
             selected = null;
