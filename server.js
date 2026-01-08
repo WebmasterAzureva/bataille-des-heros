@@ -646,6 +646,12 @@ io.on('connection', (socket) => {
         if (!canPlaceAt(card, toCol)) return;
         
         card.movedThisTurn = true;
+        // Redéploiement = comme si la créature venait d'être posée
+        // Elle ne peut plus attaquer sauf si elle a célérité
+        if (!card.abilities?.includes('haste')) {
+            card.canAttack = false;
+            card.turnsOnField = 0;
+        }
         player.field[toRow][toCol] = card;
         player.field[fromRow][fromCol] = null;
         
