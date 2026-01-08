@@ -46,15 +46,14 @@
         .energy-text { font-size: 1.2em; color: #87ceeb; font-weight: bold; }
         
         .end-turn-btn { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ff6b35, #c41e00); border: 4px solid #ffd700; cursor: pointer; font-size: 0.7em; font-weight: bold; color: white; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
-        .end-turn-btn:hover { transform: translateX(-50%) scale(1.08); box-shadow: 0 6px 25px rgba(255,107,53,0.5); }
-        .end-turn-btn:disabled { background: radial-gradient(circle at 30% 30%, #555, #333); border-color: #666; cursor: not-allowed; }
-        .end-turn-btn.waiting { background: radial-gradient(circle at 30% 30%, #666, #444); }
+        .end-turn-btn:hover:not(.waiting) { transform: translateX(-50%) scale(1.08); box-shadow: 0 6px 25px rgba(255,107,53,0.5); }
+        .end-turn-btn.waiting { background: radial-gradient(circle at 30% 30%, #666, #444); border-color: #888; cursor: default; }
         
         .timer-container { position: absolute; top: 160px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; z-index: 99; }
         .timer-container.visible { display: flex; }
         .timer-container.urgent { animation: urgentPulse 0.5s infinite; }
         .timer-text { font-size: 2.5em; font-weight: bold; color: #e74c3c; text-shadow: 0 0 20px rgba(231,76,60,0.8); }
-        @keyframes urgentPulse { 0%, 100% { transform: scale(1); text-shadow: 0 0 20px rgba(231,76,60,0.8); } 50% { transform: scale(1.1); text-shadow: 0 0 40px rgba(231,76,60,1); } }
+        @keyframes urgentPulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.1); } }
         
         .phase-indicator { position: absolute; top: 165px; left: 50%; transform: translateX(-50%); padding: 8px 25px; background: rgba(46,204,113,0.9); border-radius: 20px; border: 2px solid #58d68d; font-size: 0.8em; z-index: 90; white-space: nowrap; }
         .phase-indicator.with-timer { top: 210px; }
@@ -151,14 +150,14 @@
         .card.healing { animation: healAnim 0.5s ease-out; }
         @keyframes healAnim { 0%, 100% { box-shadow: none; } 50% { box-shadow: 0 0 30px rgba(46,204,113,0.9); } }
         
-        /* Projectile d'attaque */
         .attack-projectile { position: fixed; z-index: 1000; font-size: 2em; pointer-events: none; transition: all 0.3s ease-out; }
         
-        /* Effet de sort */
         .spell-effect { position: fixed; z-index: 1000; font-size: 3em; pointer-events: none; animation: spellAnim 0.6s ease-out forwards; }
         @keyframes spellAnim { 0% { transform: scale(0); opacity: 1; } 50% { transform: scale(1.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
         
-        /* Nombre de dégâts flottant */
+        .spell-miss { position: fixed; z-index: 1000; font-size: 2em; pointer-events: none; animation: missAnim 0.8s ease-out forwards; }
+        @keyframes missAnim { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.5) translateY(-30px); opacity: 0; } }
+        
         .damage-number { position: fixed; z-index: 1001; font-size: 1.8em; font-weight: bold; color: #e74c3c; text-shadow: 2px 2px 4px black; pointer-events: none; animation: damageFloat 1s ease-out forwards; }
         .damage-number.heal { color: #2ecc71; }
         @keyframes damageFloat { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-50px) scale(1.5); } }
@@ -352,7 +351,10 @@
                 const isMe = n === myNum;
                 document.getElementById(isMe ? 'me-ready' : 'opp-ready').classList.add('ready');
                 document.getElementById(isMe ? 'me-ready' : 'opp-ready').textContent = '✓';
-                if (isMe) updateButtonState();
+                if (isMe) {
+                    // Bouton devient gris immédiatement
+                    document.getElementById('end-turn-btn').classList.add('waiting');
+                }
                 log(isMe ? 'Vous êtes prêt' : 'Adversaire prêt', 'action');
             });
             
@@ -363,9 +365,8 @@
                 document.getElementById('me-ready').textContent = '';
                 document.getElementById('opp-ready').textContent = '';
                 
-                const btn = document.getElementById('end-turn-btn');
-                btn.classList.remove('waiting');
-                btn.disabled = false;
+                // Bouton redevient orange
+                document.getElementById('end-turn-btn').classList.remove('waiting');
                 
                 clearSel();
                 updateTimerDisplay(90);
@@ -408,6 +409,9 @@
                 case 'spell':
                     animateSpell(data);
                     break;
+                case 'spellMiss':
+                    animateSpellMiss(data);
+                    break;
                 case 'heal':
                     animateHeal(data);
                     break;
@@ -434,7 +438,6 @@
                 setTimeout(() => card.classList.remove('attacking'), 400);
             }
             
-            // Projectile
             if (slot) {
                 const rect = slot.getBoundingClientRect();
                 const projectile = document.createElement('div');
@@ -448,7 +451,6 @@
                 let targetX, targetY;
                 
                 if (data.targetCol === -1) {
-                    // Hit hero
                     const heroEl = document.getElementById(targetOwner === 'me' ? 'hero-me' : 'hero-opp');
                     const heroRect = heroEl.getBoundingClientRect();
                     targetX = heroRect.left + heroRect.width/2;
@@ -483,7 +485,6 @@
                 setTimeout(() => card.classList.remove('taking-damage'), 400);
             }
             
-            // Floating damage number
             if (slot) {
                 const rect = slot.getBoundingClientRect();
                 const num = document.createElement('div');
@@ -518,6 +519,22 @@
                 effect.style.top = rect.top + rect.height/2 - 30 + 'px';
                 document.body.appendChild(effect);
                 setTimeout(() => effect.remove(), 600);
+            }
+        }
+        
+        function animateSpellMiss(data) {
+            const targetOwner = data.targetPlayer === myNum ? 'me' : 'opp';
+            const slot = document.querySelector(`.card-slot[data-owner="${targetOwner}"][data-row="${data.row}"][data-col="${data.col}"]`);
+            
+            if (slot) {
+                const rect = slot.getBoundingClientRect();
+                const effect = document.createElement('div');
+                effect.className = 'spell-miss';
+                effect.textContent = '💨';
+                effect.style.left = rect.left + rect.width/2 - 20 + 'px';
+                effect.style.top = rect.top + rect.height/2 - 20 + 'px';
+                document.body.appendChild(effect);
+                setTimeout(() => effect.remove(), 800);
             }
         }
         
@@ -613,11 +630,6 @@
             }
         }
         
-        function updateButtonState() {
-            const btn = document.getElementById('end-turn-btn');
-            btn.classList.toggle('waiting', state && state.me.ready);
-        }
-        
         function setupHeroes() {
             if (myNum === 1) {
                 document.getElementById('me-name').textContent = 'Joueur 1 (Vous)';
@@ -667,12 +679,10 @@
             const trapCenter = document.createElement('div');
             trapCenter.className = 'trap-center';
             
-            // My traps (left column of center)
             const myTraps = document.createElement('div');
             myTraps.className = 'trap-col';
             for (let i = 0; i < 4; i++) myTraps.appendChild(makeTrapSlot('me', i));
             
-            // Opponent traps (right column of center)
             const oppTraps = document.createElement('div');
             oppTraps.className = 'trap-col';
             for (let i = 0; i < 4; i++) oppTraps.appendChild(makeTrapSlot('opp', i));
@@ -762,10 +772,11 @@
                     if (!state.me.traps[row]) valid.push({ trap: true, row });
                 }
             } else if (card.type === 'spell') {
+                // Les sorts peuvent cibler TOUTES les cases (stratégie par anticipation)
                 for (let row = 0; row < 4; row++) {
                     for (let col = 0; col < 2; col++) {
-                        if (state.me.field[row][col]) valid.push({ owner: 'me', row, col });
-                        if (state.opponent.field[row][col]) valid.push({ owner: 'opp', row, col });
+                        valid.push({ owner: 'me', row, col });
+                        valid.push({ owner: 'opp', row, col });
                     }
                 }
             }
@@ -817,13 +828,12 @@
             if (me.ready) {
                 document.getElementById('me-ready').classList.add('ready');
                 document.getElementById('me-ready').textContent = '✓';
+                document.getElementById('end-turn-btn').classList.add('waiting');
             }
             if (opp.ready) {
                 document.getElementById('opp-ready').classList.add('ready');
                 document.getElementById('opp-ready').textContent = '✓';
             }
-            
-            updateButtonState();
         }
         
         function renderField(owner, field) {
@@ -865,7 +875,7 @@
                 }
             });
             
-            // Opponent traps - show from their traps array
+            // Opponent traps
             state.opponent.traps.forEach((trap, i) => {
                 const slot = document.querySelector(`.trap-slot[data-owner="opp"][data-row="${i}"]`);
                 if (slot) {
@@ -992,13 +1002,11 @@
         function clickSlot(owner, row, col) {
             if (!canPlay()) return;
             
+            // Sort sélectionné - peut cibler n'importe quelle case
             if (selected && selected.fromHand && selected.type === 'spell') {
                 const targetPlayer = owner === 'me' ? myNum : (myNum === 1 ? 2 : 1);
-                const target = owner === 'me' ? state.me.field[row][col] : state.opponent.field[row][col];
-                if (target) {
-                    socket.emit('castSpell', { handIndex: selected.idx, targetPlayer, row, col });
-                    clearSel();
-                }
+                socket.emit('castSpell', { handIndex: selected.idx, targetPlayer, row, col });
+                clearSel();
                 return;
             }
             
@@ -1041,9 +1049,9 @@
             if (!dragged || !canPlay()) return;
             
             if (dragged.type === 'spell') {
+                // Sort peut cibler n'importe quelle case
                 const targetPlayer = owner === 'me' ? myNum : (myNum === 1 ? 2 : 1);
-                const target = owner === 'me' ? state.me.field[row][col] : state.opponent.field[row][col];
-                if (target) socket.emit('castSpell', { handIndex: dragged.idx, targetPlayer, row, col });
+                socket.emit('castSpell', { handIndex: dragged.idx, targetPlayer, row, col });
             } else if (dragged.type === 'creature' && owner === 'me') {
                 if (canPlaceAt(dragged, col) && !state.me.field[row][col]) {
                     socket.emit('placeCard', { handIndex: dragged.idx, row, col });
@@ -1062,6 +1070,8 @@
         
         function endTurn() {
             if (!canPlay()) return;
+            // Bouton devient gris immédiatement
+            document.getElementById('end-turn-btn').classList.add('waiting');
             socket.emit('ready');
         }
         
