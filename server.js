@@ -78,13 +78,9 @@ function createPlayerState() {
         ready: false,
         connected: false,
         inDeployPhase: false,
-        // Pending actions - revealed only at resolution
         pendingActions: [],
-        // Temporary state for current turn (what player sees)
-        pendingField: null,
-        pendingTraps: null,
-        pendingHand: null,
-        pendingEnergy: null
+        confirmedField: null,
+        confirmedTraps: null
     };
 }
 
@@ -97,24 +93,34 @@ function createGameState() {
     };
 }
 
-// Initialize pending state at start of turn
-function initPendingState(player) {
-    player.pendingField = JSON.parse(JSON.stringify(player.field));
-    player.pendingTraps = JSON.parse(JSON.stringify(player.traps));
-    player.pendingHand = JSON.parse(JSON.stringify(player.hand));
-    player.pendingEnergy = player.energy;
-    player.pendingActions = [];
-    player.inDeployPhase = false;
+function deepClone(obj) {
+    if (obj === null || obj === undefined) return obj;
+    return JSON.parse(JSON.stringify(obj));
 }
 
-// Get state for a player - shows their pending changes but opponent's confirmed state
+function resetPlayerForNewTurn(player) {
+    player.ready = false;
+    player.inDeployPhase = false;
+    player.pendingActions = [];
+    
+    for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 2; c++) {
+            if (player.field[r][c]) {
+                player.field[r][c].movedThisTurn = false;
+            }
+        }
+    }
+    
+    player.confirmedField = deepClone(player.field);
+    player.confirmedTraps = deepClone(player.traps);
+}
+
 function getPublicGameState(room, forPlayer) {
     const state = room.gameState;
     const opponent = forPlayer === 1 ? 2 : 1;
     const me = state.players[forPlayer];
     const opp = state.players[opponent];
     
-    // During planning, show pending state to self but confirmed state of opponent
     const isPlanning = state.phase === 'planning';
     
     return {
@@ -124,41 +130,46 @@ function getPublicGameState(room, forPlayer) {
         myPlayer: forPlayer,
         me: {
             hp: me.hp,
-            energy: isPlanning && me.pendingEnergy !== null ? me.pendingEnergy : me.energy,
+            energy: me.energy,
             maxEnergy: me.maxEnergy,
-            hand: isPlanning && me.pendingHand ? me.pendingHand : me.hand,
+            hand: me.hand,
             deckCount: me.deck.length,
-            field: isPlanning && me.pendingField ? me.pendingField : me.field,
-            traps: isPlanning && me.pendingTraps ? me.pendingTraps : me.traps,
+            field: me.field,
+            traps: me.traps,
             graveyardCount: me.graveyard.length,
             ready: me.ready,
             inDeployPhase: me.inDeployPhase
         },
         opponent: {
             hp: opp.hp,
-            energy: opp.energy, // Always confirmed state
+            energy: opp.maxEnergy,
             maxEnergy: opp.maxEnergy,
-            handCount: isPlanning && opp.pendingHand ? opp.pendingHand.length : opp.hand.length,
+            handCount: opp.hand.length,
             deckCount: opp.deck.length,
-            field: opp.field, // Always confirmed state - don't show pending!
-            trapsCount: opp.traps.filter(t => t !== null).length, // Confirmed traps only
+            field: isPlanning && opp.confirmedField ? opp.confirmedField : opp.field,
+            trapsCount: isPlanning && opp.confirmedTraps 
+                ? opp.confirmedTraps.filter(t => t !== null).length 
+                : opp.traps.filter(t => t !== null).length,
             graveyardCount: opp.graveyard.length,
             ready: opp.ready
         }
     };
 }
 
+function emitStateToPlayer(room, playerNum) {
+    const socketId = room.players[playerNum];
+    if (socketId) {
+        io.to(socketId).emit('gameStateUpdate', getPublicGameState(room, playerNum));
+    }
+}
+
+function emitStateToBoth(room) {
+    emitStateToPlayer(room, 1);
+    emitStateToPlayer(room, 2);
+}
+
 function startTurnTimer(room) {
     if (room.timer) clearInterval(room.timer);
-    room.gameState.timeLeft = TURN_TIME;
-    room.gameState.phase = 'planning';
-    
-    // Initialize pending state for both players
-    initPendingState(room.gameState.players[1]);
-    initPendingState(room.gameState.players[2]);
-    
-    room.gameState.players[1].ready = false;
-    room.gameState.players[2].ready = false;
     
     room.timer = setInterval(() => {
         room.gameState.timeLeft--;
@@ -186,42 +197,30 @@ async function startResolution(room) {
     
     const log = (msg, type) => io.to(room.code).emit('resolutionLog', { msg, type });
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-    const emitState = () => {
-        if (room.players[1]) io.to(room.players[1]).emit('gameStateUpdate', getPublicGameState(room, 1));
-        if (room.players[2]) io.to(room.players[2]).emit('gameStateUpdate', getPublicGameState(room, 2));
-    };
     
     log(`⚔️ RÉSOLUTION DU TOUR ${room.gameState.turn}`, 'phase');
     await sleep(600);
     
-    // 1. Apply all pending actions in order
     log('📋 Application des actions...', 'phase');
     await sleep(400);
     
     for (let p = 1; p <= 2; p++) {
         const player = room.gameState.players[p];
-        const actions = player.pendingActions;
+        const actions = player.pendingActions || [];
         
         if (actions.length > 0) {
             log(`👤 Joueur ${p} :`, 'action');
             await sleep(300);
+            
+            for (const action of actions) {
+                await applyAction(room, p, action, log, sleep);
+            }
         }
-        
-        for (const action of actions) {
-            await applyAction(room, p, action, log, emitState, sleep);
-        }
-        
-        // Clear pending state - apply to real state
-        player.field = player.pendingField ? JSON.parse(JSON.stringify(player.pendingField)) : player.field;
-        player.traps = player.pendingTraps ? JSON.parse(JSON.stringify(player.pendingTraps)) : player.traps;
-        player.hand = player.pendingHand ? JSON.parse(JSON.stringify(player.pendingHand)) : player.hand;
-        player.energy = player.pendingEnergy !== null ? player.pendingEnergy : player.energy;
     }
     
-    emitState();
+    emitStateToBoth(room);
     await sleep(500);
     
-    // 2. Draw phase
     for (let p = 1; p <= 2; p++) {
         const player = room.gameState.players[p];
         if (player.deck.length > 0) {
@@ -230,26 +229,25 @@ async function startResolution(room) {
                 card.currentHp = card.hp;
                 card.canAttack = false;
                 card.turnsOnField = 0;
+                card.movedThisTurn = false;
             }
             player.hand.push(card);
         }
     }
     log('📦 Les joueurs piochent une carte', 'action');
-    emitState();
+    emitStateToBoth(room);
     await sleep(500);
     
-    // 3. Combat phase
     log('⚔️ Phase de combat', 'phase');
     await sleep(400);
     
     for (let row = 0; row < 4; row++) {
         for (let col = 1; col >= 0; col--) {
-            await processCombat(room, 1, row, col, log, emitState, sleep);
-            await processCombat(room, 2, row, col, log, emitState, sleep);
+            await processCombat(room, 1, row, col, log, sleep);
+            await processCombat(room, 2, row, col, log, sleep);
         }
     }
     
-    // 4. Activate cards for next turn
     for (let p = 1; p <= 2; p++) {
         for (let r = 0; r < 4; r++) {
             for (let c = 0; c < 2; c++) {
@@ -263,7 +261,6 @@ async function startResolution(room) {
         }
     }
     
-    // Check victory
     const p1hp = room.gameState.players[1].hp;
     const p2hp = room.gameState.players[2].hp;
     
@@ -279,39 +276,30 @@ async function startResolution(room) {
     startNewTurn(room);
 }
 
-async function applyAction(room, playerNum, action, log, emitState, sleep) {
+async function applyAction(room, playerNum, action, log, sleep) {
+    const slotNames = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
     const player = room.gameState.players[playerNum];
     const opponent = room.gameState.players[playerNum === 1 ? 2 : 1];
     
-    const slotNames = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
-    
     switch (action.type) {
         case 'place':
-            const slotName = slotNames[action.row][action.col] + playerNum;
-            log(`  🎴 ${action.card.name} posé en ${slotName}`, 'action');
-            emitState();
+            log(`  🎴 ${action.card.name} posé en ${slotNames[action.row][action.col]}${playerNum}`, 'action');
             await sleep(400);
             break;
             
         case 'move':
-            const fromName = slotNames[action.fromRow][action.fromCol] + playerNum;
-            const toName = slotNames[action.toRow][action.toCol] + playerNum;
-            log(`  ↔️ ${action.card.name} déplacé ${fromName} → ${toName}`, 'action');
-            emitState();
+            log(`  ↔️ ${action.card.name} déplacé ${slotNames[action.fromRow][action.fromCol]}${playerNum} → ${slotNames[action.toRow][action.toCol]}${playerNum}`, 'action');
             await sleep(300);
             break;
             
         case 'trap':
             log(`  🪤 Piège posé en rangée ${action.row + 1}`, 'action');
-            emitState();
             await sleep(300);
             break;
             
         case 'spell':
-            // Apply spell during resolution
-            const target = action.targetPlayer === playerNum 
-                ? player.field[action.row][action.col]
-                : opponent.field[action.row][action.col];
+            const targetField = action.targetPlayer === playerNum ? player.field : opponent.field;
+            const target = targetField[action.row][action.col];
             
             if (target) {
                 if (action.spell.offensive && action.spell.damage) {
@@ -321,7 +309,7 @@ async function applyAction(room, playerNum, action, log, emitState, sleep) {
                     if (target.currentHp <= 0) {
                         const targetOwner = action.targetPlayer === playerNum ? player : opponent;
                         targetOwner.graveyard.push(target);
-                        targetOwner.field[action.row][action.col] = null;
+                        targetField[action.row][action.col] = null;
                         log(`  ☠️ ${target.name} détruit!`, 'damage');
                     }
                 }
@@ -331,13 +319,13 @@ async function applyAction(room, playerNum, action, log, emitState, sleep) {
                     log(`  💚 ${action.spell.name} soigne ${target.name} (+${target.currentHp - oldHp} PV)`, 'heal');
                 }
             }
-            emitState();
+            emitStateToBoth(room);
             await sleep(500);
             break;
     }
 }
 
-async function processCombat(room, attackerPlayer, row, col, log, emitState, sleep) {
+async function processCombat(room, attackerPlayer, row, col, log, sleep) {
     const attacker = room.gameState.players[attackerPlayer].field[row][col];
     if (!attacker || !attacker.canAttack) return;
     
@@ -360,21 +348,20 @@ async function processCombat(room, attackerPlayer, row, col, log, emitState, sle
         if (canBlock) { blocker = defBack; blockerCol = 0; }
     }
     
-    // Trap check
     const trap = room.gameState.players[defenderPlayer].traps[row];
     if (trap && !blocker) {
         log(`🪤 Piège "${trap.name}" déclenché sur ${attacker.name}!`, 'trap');
         if (trap.damage) attacker.currentHp -= trap.damage;
         if (trap.effect === 'stun') attacker.stunned = true;
         room.gameState.players[defenderPlayer].traps[row] = null;
-        emitState();
+        emitStateToBoth(room);
         await sleep(400);
         
         if (attacker.currentHp <= 0) {
             room.gameState.players[attackerPlayer].graveyard.push(attacker);
             room.gameState.players[attackerPlayer].field[row][col] = null;
             log(`☠️ ${attacker.name} détruit par piège!`, 'damage');
-            emitState();
+            emitStateToBoth(room);
             return;
         }
         if (attacker.stunned) { delete attacker.stunned; return; }
@@ -384,7 +371,7 @@ async function processCombat(room, attackerPlayer, row, col, log, emitState, sle
         room.gameState.players[defenderPlayer].hp -= attacker.atk;
         log(`⚔️ ${attacker.name} → Héros J${defenderPlayer} (-${attacker.atk})`, 'damage');
         io.to(room.code).emit('directDamage', { defender: defenderPlayer, damage: attacker.atk });
-        emitState();
+        emitStateToBoth(room);
         await sleep(400);
         return;
     }
@@ -397,7 +384,7 @@ async function processCombat(room, attackerPlayer, row, col, log, emitState, sle
         log(`↩️ ${blocker.name} riposte (-${blocker.atk})`, 'damage');
     }
     
-    emitState();
+    emitStateToBoth(room);
     await sleep(400);
     
     if (blocker.currentHp <= 0) {
@@ -410,48 +397,36 @@ async function processCombat(room, attackerPlayer, row, col, log, emitState, sle
         room.gameState.players[attackerPlayer].field[row][col] = null;
         log(`☠️ ${attacker.name} détruit!`, 'damage');
     }
-    emitState();
+    emitStateToBoth(room);
     await sleep(300);
 }
 
 function startNewTurn(room) {
+    console.log(`Starting turn ${room.gameState.turn + 1} for room ${room.code}`);
+    
     room.gameState.turn++;
+    room.gameState.phase = 'planning';
+    room.gameState.timeLeft = TURN_TIME;
     
     for (let p = 1; p <= 2; p++) {
         const player = room.gameState.players[p];
         player.maxEnergy = Math.min(10, player.maxEnergy + 1);
         player.energy = player.maxEnergy;
-        player.ready = false;
-        player.inDeployPhase = false;
-        player.pendingActions = [];
-        
-        for (let r = 0; r < 4; r++) {
-            for (let c = 0; c < 2; c++) {
-                if (player.field[r][c]) {
-                    player.field[r][c].movedThisTurn = false;
-                }
-            }
-        }
+        resetPlayerForNewTurn(player);
     }
-    
-    room.gameState.phase = 'planning';
-    room.gameState.timeLeft = TURN_TIME;
     
     io.to(room.code).emit('newTurn', { 
         turn: room.gameState.turn, 
         maxEnergy: room.gameState.players[1].maxEnergy 
     });
     
-    if (room.players[1]) io.to(room.players[1]).emit('gameStateUpdate', getPublicGameState(room, 1));
-    if (room.players[2]) io.to(room.players[2]).emit('gameStateUpdate', getPublicGameState(room, 2));
-    
+    emitStateToBoth(room);
     startTurnTimer(room);
 }
 
 function canPlaceAt(card, col) {
     const shooter = card.abilities?.includes('shooter');
     const fly = card.abilities?.includes('fly');
-    
     if (fly) return true;
     if (shooter) return col === 0;
     return col === 1;
@@ -465,6 +440,10 @@ io.on('connection', (socket) => {
         const code = generateRoomCode();
         const room = { code, players: { 1: socket.id, 2: null }, gameState: createGameState(), timer: null };
         room.gameState.players[1].connected = true;
+        
+        resetPlayerForNewTurn(room.gameState.players[1]);
+        resetPlayerForNewTurn(room.gameState.players[2]);
+        
         rooms.set(code, room);
         playerRooms.set(socket.id, { code, playerNum: 1 });
         socket.join(code);
@@ -485,6 +464,7 @@ io.on('connection', (socket) => {
         
         io.to(room.players[1]).emit('gameStart', getPublicGameState(room, 1));
         io.to(room.players[2]).emit('gameStart', getPublicGameState(room, 2));
+        
         startTurnTimer(room);
         console.log(`Room ${room.code} started`);
     });
@@ -499,13 +479,14 @@ io.on('connection', (socket) => {
         if (player.ready) return;
         
         const { handIndex, row, col } = data;
-        const card = player.pendingHand[handIndex];
-        if (!card || card.type !== 'creature' || card.cost > player.pendingEnergy) return;
-        if (player.pendingField[row][col]) return;
+        if (handIndex < 0 || handIndex >= player.hand.length) return;
+        
+        const card = player.hand[handIndex];
+        if (!card || card.type !== 'creature' || card.cost > player.energy) return;
+        if (player.field[row][col]) return;
         if (!canPlaceAt(card, col)) return;
         
-        // Apply to pending state
-        player.pendingEnergy -= card.cost;
+        player.energy -= card.cost;
         const placed = { 
             ...card, 
             turnsOnField: 0, 
@@ -513,15 +494,13 @@ io.on('connection', (socket) => {
             currentHp: card.hp, 
             movedThisTurn: false 
         };
-        player.pendingField[row][col] = placed;
-        player.pendingHand.splice(handIndex, 1);
+        player.field[row][col] = placed;
+        player.hand.splice(handIndex, 1);
         player.inDeployPhase = true;
         
-        // Record action for resolution
-        player.pendingActions.push({ type: 'place', card: placed, row, col });
+        player.pendingActions.push({ type: 'place', card: deepClone(placed), row, col });
         
-        // Only update the player who made the action
-        socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+        emitStateToPlayer(room, info.playerNum);
     });
     
     socket.on('moveCard', (data) => {
@@ -534,23 +513,21 @@ io.on('connection', (socket) => {
         if (player.ready || player.inDeployPhase) return;
         
         const { fromRow, fromCol, toRow, toCol } = data;
-        const card = player.pendingField[fromRow][fromCol];
+        const card = player.field[fromRow][fromCol];
         if (!card || card.movedThisTurn) return;
-        if (player.pendingField[toRow][toCol]) return;
+        if (player.field[toRow][toCol]) return;
         
         if (fromCol !== toCol) return;
         if (Math.abs(toRow - fromRow) !== 1) return;
         if (!canPlaceAt(card, toCol)) return;
         
-        // Apply to pending state
         card.movedThisTurn = true;
-        player.pendingField[toRow][toCol] = card;
-        player.pendingField[fromRow][fromCol] = null;
+        player.field[toRow][toCol] = card;
+        player.field[fromRow][fromCol] = null;
         
-        // Record action
-        player.pendingActions.push({ type: 'move', card, fromRow, fromCol, toRow, toCol });
+        player.pendingActions.push({ type: 'move', card: deepClone(card), fromRow, fromCol, toRow, toCol });
         
-        socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+        emitStateToPlayer(room, info.playerNum);
     });
     
     socket.on('castSpell', (data) => {
@@ -563,27 +540,27 @@ io.on('connection', (socket) => {
         if (player.ready) return;
         
         const { handIndex, targetPlayer, row, col } = data;
-        const spell = player.pendingHand[handIndex];
-        if (!spell || spell.type !== 'spell' || spell.cost > player.pendingEnergy) return;
+        if (handIndex < 0 || handIndex >= player.hand.length) return;
         
-        // Check target exists (in confirmed state for opponent, pending for self)
+        const spell = player.hand[handIndex];
+        if (!spell || spell.type !== 'spell' || spell.cost > player.energy) return;
+        
         let target;
         if (targetPlayer === info.playerNum) {
-            target = player.pendingField[row][col];
+            target = player.field[row][col];
         } else {
-            target = room.gameState.players[targetPlayer].field[row][col];
+            const opp = room.gameState.players[targetPlayer];
+            target = opp.confirmedField ? opp.confirmedField[row][col] : opp.field[row][col];
         }
         if (!target) return;
         
-        // Apply cost to pending state
-        player.pendingEnergy -= spell.cost;
-        player.pendingHand.splice(handIndex, 1);
+        player.energy -= spell.cost;
+        player.hand.splice(handIndex, 1);
         player.inDeployPhase = true;
         
-        // Record action - spell effect applied during resolution
-        player.pendingActions.push({ type: 'spell', spell, targetPlayer, row, col });
+        player.pendingActions.push({ type: 'spell', spell: deepClone(spell), targetPlayer, row, col });
         
-        socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+        emitStateToPlayer(room, info.playerNum);
     });
     
     socket.on('placeTrap', (data) => {
@@ -596,20 +573,20 @@ io.on('connection', (socket) => {
         if (player.ready) return;
         
         const { handIndex, trapIndex } = data;
-        const trap = player.pendingHand[handIndex];
-        if (!trap || trap.type !== 'trap' || trap.cost > player.pendingEnergy) return;
-        if (player.pendingTraps[trapIndex]) return;
+        if (handIndex < 0 || handIndex >= player.hand.length) return;
         
-        // Apply to pending state
-        player.pendingEnergy -= trap.cost;
-        player.pendingTraps[trapIndex] = trap;
-        player.pendingHand.splice(handIndex, 1);
+        const trap = player.hand[handIndex];
+        if (!trap || trap.type !== 'trap' || trap.cost > player.energy) return;
+        if (player.traps[trapIndex]) return;
+        
+        player.energy -= trap.cost;
+        player.traps[trapIndex] = trap;
+        player.hand.splice(handIndex, 1);
         player.inDeployPhase = true;
         
-        // Record action
-        player.pendingActions.push({ type: 'trap', trap, row: trapIndex });
+        player.pendingActions.push({ type: 'trap', trap: deepClone(trap), row: trapIndex });
         
-        socket.emit('gameStateUpdate', getPublicGameState(room, info.playerNum));
+        emitStateToPlayer(room, info.playerNum);
     });
     
     socket.on('ready', () => {
@@ -622,6 +599,7 @@ io.on('connection', (socket) => {
         room.gameState.players[info.playerNum].ready = true;
         io.to(room.code).emit('playerReady', info.playerNum);
         
+        console.log(`Player ${info.playerNum} ready in room ${room.code}`);
         checkBothReady(room);
     });
     
@@ -641,6 +619,7 @@ io.on('connection', (socket) => {
             }
             playerRooms.delete(socket.id);
         }
+        console.log('Disconnected:', socket.id);
     });
 });
 
