@@ -46,6 +46,32 @@ const rooms = new Map();
 const playerRooms = new Map();
 const TURN_TIME = 90;
 
+// Réinitialiser une carte à ses stats de base avant de l'ajouter au cimetière
+function resetCardForGraveyard(card) {
+    if (!card) return null;
+    
+    // Trouver la carte de base dans la DB
+    const baseCard = CardDB.creatures.find(c => c.id === card.id) ||
+                     CardDB.spells.find(c => c.id === card.id) ||
+                     CardDB.traps.find(c => c.id === card.id);
+    
+    if (baseCard) {
+        // Retourner une copie des stats de base
+        return { ...baseCard };
+    }
+    
+    // Si pas trouvée, retourner la carte telle quelle
+    return { ...card };
+}
+
+// Ajouter une carte au cimetière avec ses stats de base
+function addToGraveyard(player, card) {
+    const resetCard = resetCardForGraveyard(card);
+    if (resetCard) {
+        player.graveyard.push(resetCard);
+    }
+}
+
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -350,7 +376,7 @@ async function startResolution(room) {
             
             // Max 9 cartes en main
             if (player.hand.length >= 9) {
-                player.graveyard.push(card);
+                addToGraveyard(player, card);
                 log(`📦 ${player.heroName} a la main pleine, la carte va au cimetière`, 'damage');
             } else {
                 player.hand.push(card);
@@ -460,7 +486,7 @@ async function processTrapsForRow(room, row, log, sleep) {
             }
             
             // Mettre le piège au cimetière
-            defenderState.graveyard.push(trap);
+            addToGraveyard(defenderState, trap);
             defenderState.traps[row] = null;
             
             emitStateToBoth(room);
@@ -468,7 +494,7 @@ async function processTrapsForRow(room, row, log, sleep) {
             
             // Vérifier si la créature meurt du piège
             if (firstAttacker.card.currentHp <= 0) {
-                attackerState.graveyard.push(firstAttacker.card);
+                addToGraveyard(attackerState, firstAttacker.card);
                 attackerState.field[row][firstAttacker.col] = null;
                 log(`  ☠️ ${firstAttacker.card.name} détruit par le piège!`, 'damage');
                 emitAnimation(room, 'death', { player: attackerPlayer, row: row, col: firstAttacker.col });
@@ -521,7 +547,7 @@ async function applySpell(room, action, log, sleep) {
                 
                 if (target.currentHp <= 0) {
                     const targetOwner = t.player === playerNum ? player : opponent;
-                    targetOwner.graveyard.push(target);
+                    addToGraveyard(targetOwner, target);
                     targetField[t.row][t.col] = null;
                     log(`    ☠️ ${target.name} détruit!`, 'damage');
                     emitAnimation(room, 'death', { player: t.player, row: t.row, col: t.col });
@@ -541,7 +567,7 @@ async function applySpell(room, action, log, sleep) {
                 
                 if (target.currentHp <= 0) {
                     const targetOwner = action.targetPlayer === playerNum ? player : opponent;
-                    targetOwner.graveyard.push(target);
+                    addToGraveyard(targetOwner, target);
                     targetField[action.row][action.col] = null;
                     log(`  ☠️ ${target.name} détruit!`, 'damage');
                     emitAnimation(room, 'death', { player: action.targetPlayer, row: action.row, col: action.col });
@@ -711,7 +737,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
     for (let p = 1; p <= 2; p++) {
         const card = room.gameState.players[p].field[row][col];
         if (card && card.currentHp <= 0) {
-            room.gameState.players[p].graveyard.push(card);
+            addToGraveyard(room.gameState.players[p], card);
             room.gameState.players[p].field[row][col] = null;
             log(`☠️ ${card.name} détruit!`, 'damage');
             emitAnimation(room, 'death', { player: p, row: row, col: col });
@@ -723,7 +749,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
         if (!atk.targetIsHero && atk.target && (atk.targetRow !== row || atk.targetCol !== col)) {
             const targetCard = room.gameState.players[atk.targetPlayer].field[atk.targetRow][atk.targetCol];
             if (targetCard && targetCard.currentHp <= 0) {
-                room.gameState.players[atk.targetPlayer].graveyard.push(targetCard);
+                addToGraveyard(room.gameState.players[atk.targetPlayer], targetCard);
                 room.gameState.players[atk.targetPlayer].field[atk.targetRow][atk.targetCol] = null;
                 log(`☠️ ${targetCard.name} détruit!`, 'damage');
                 emitAnimation(room, 'death', { player: atk.targetPlayer, row: atk.targetRow, col: atk.targetCol });
