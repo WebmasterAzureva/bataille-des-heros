@@ -1043,11 +1043,17 @@ async function processCombatSlot(room, row, col, log, sleep) {
             
             // RIPOSTE: seulement si la cible NE PEUT PAS attaquer ce tour
             // Les tireurs ne reçoivent JAMAIS de riposte (attaque à distance)
+            // La riposte est SIMULTANÉE (même si la cible meurt) SAUF si l'attaquant a INITIATIVE
             const targetCanAttack = targetCard.canAttack;
             const targetDied = targetCard.currentHp <= 0;
             const attackerIsShooter = attackerCard.abilities.includes('shooter');
+            const attackerHasInitiative = attackerCard.abilities.includes('initiative');
             
-            if (!targetCanAttack && !targetDied && !attackerIsShooter) {
+            // Riposte si :
+            // - La cible ne peut pas attaquer
+            // - L'attaquant n'est pas un tireur
+            // - ET (l'attaquant n'a pas initiative OU la cible survit)
+            if (!targetCanAttack && !attackerIsShooter && (!attackerHasInitiative || !targetDied)) {
                 const riposteDamage = targetCard.atk;
                 attackerCard.currentHp -= riposteDamage;
                 log(`↩️ ${targetCard.name} riposte → ${attackerCard.name} (-${riposteDamage})`, 'damage');
