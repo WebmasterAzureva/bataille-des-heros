@@ -512,6 +512,27 @@
             margin-top: 20px;
             animation: pulse 1.5s infinite;
         }
+        .mulligan-timer {
+            position: absolute;
+            top: 30px;
+            right: 50px;
+            font-size: 3em;
+            font-weight: bold;
+            color: #ffd700;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .mulligan-timer.visible {
+            opacity: 1;
+        }
+        .mulligan-timer.urgent {
+            color: #e74c3c;
+            animation: timerPulse 0.5s infinite;
+        }
+        @keyframes timerPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -538,6 +559,7 @@
     
     <!-- Mulligan Overlay -->
     <div class="mulligan-overlay hidden" id="mulligan-overlay">
+        <div class="mulligan-timer" id="mulligan-timer">15</div>
         <div class="mulligan-title">🎴 Votre Main de Départ</div>
         <div class="mulligan-subtitle">Gardez cette main ou piochez 7 nouvelles cartes</div>
         <div class="mulligan-hand" id="mulligan-hand"></div>
@@ -685,9 +707,8 @@
                     const handContainer = document.getElementById('mulligan-hand');
                     handContainer.innerHTML = '';
                     s.me.hand.forEach(card => {
-                        const cardEl = document.createElement('div');
-                        cardEl.innerHTML = makeCard(card, false, false);
-                        handContainer.appendChild(cardEl.firstChild);
+                        const cardHtml = makeCard(card, false, false);
+                        handContainer.insertAdjacentHTML('beforeend', cardHtml);
                     });
                 }
                 
@@ -1169,6 +1190,8 @@
         }
         
         // ==================== MULLIGAN ====================
+        let mulliganTimer = null;
+        
         function showMulligan() {
             const overlay = document.getElementById('mulligan-overlay');
             const handContainer = document.getElementById('mulligan-hand');
@@ -1178,13 +1201,42 @@
             
             // Afficher les cartes de la main
             state.me.hand.forEach(card => {
-                const cardEl = document.createElement('div');
-                cardEl.innerHTML = makeCard(card, false, false);
-                handContainer.appendChild(cardEl.firstChild);
+                const cardHtml = makeCard(card, false, false);
+                handContainer.insertAdjacentHTML('beforeend', cardHtml);
             });
+            
+            // Démarrer le timer de 15 secondes
+            startMulliganTimer();
+        }
+        
+        function startMulliganTimer() {
+            let timeLeft = 15;
+            const timerEl = document.getElementById('mulligan-timer');
+            timerEl.textContent = timeLeft;
+            timerEl.classList.add('visible');
+            
+            mulliganTimer = setInterval(() => {
+                timeLeft--;
+                timerEl.textContent = timeLeft;
+                timerEl.classList.toggle('urgent', timeLeft <= 5);
+                
+                if (timeLeft <= 0) {
+                    clearInterval(mulliganTimer);
+                    // Auto-keep si le temps est écoulé
+                    if (!mulliganDone) {
+                        keepHand();
+                    }
+                }
+            }, 1000);
         }
         
         function startGame() {
+            // Arrêter le timer mulligan si actif
+            if (mulliganTimer) {
+                clearInterval(mulliganTimer);
+                mulliganTimer = null;
+            }
+            
             document.getElementById('mulligan-overlay').classList.add('hidden');
             document.getElementById('game-container').classList.add('active');
             buildBattlefield();
@@ -1199,6 +1251,7 @@
             
             document.getElementById('mulligan-buttons').classList.add('hidden');
             document.getElementById('mulligan-waiting').classList.remove('hidden');
+            document.getElementById('mulligan-timer').classList.remove('visible');
             
             socket.emit('keepHand');
         }
@@ -1209,6 +1262,7 @@
             
             document.getElementById('mulligan-buttons').classList.add('hidden');
             document.getElementById('mulligan-waiting').classList.remove('hidden');
+            document.getElementById('mulligan-timer').classList.remove('visible');
             
             socket.emit('mulligan');
         }
