@@ -128,6 +128,7 @@
         .stat-atk { background: linear-gradient(135deg, #c0392b, #8e2222); }
         .stat-hp { background: linear-gradient(135deg, #27ae60, #1a7a42); }
         .stat-hp.damaged { background: linear-gradient(135deg, #e67e22, #d35400); }
+        .stat-atk.boosted, .stat-hp.boosted { background: linear-gradient(135deg, #27ae60, #1e8449); }
         .card.creature { border: 3px solid #3498db; }
         .card.spell { border: 3px solid #9b59b6; }
         .card.trap-card { border: 3px solid #e74c3c; }
@@ -991,11 +992,17 @@
         
         function updateTimerDisplay(t) {
             const timerEl = document.getElementById('header-timer');
+            const endTurnBtn = document.getElementById('end-turn-btn');
             
             if (t <= 15 && state && state.phase === 'planning') {
                 timerEl.classList.add('visible');
                 timerEl.textContent = t;
                 timerEl.classList.toggle('urgent', t <= 5);
+                
+                // À 0, griser immédiatement le bouton comme si on avait cliqué
+                if (t <= 0 && !endTurnBtn.classList.contains('waiting')) {
+                    endTurnBtn.classList.add('waiting');
+                }
             } else {
                 timerEl.classList.remove('visible', 'urgent');
             }
@@ -1561,7 +1568,22 @@
             };
             const abilities = (card.abilities || []).map(a => icons[a] || '').join(' ');
             const hp = card.currentHp ?? card.hp;
-            const hpClass = card.type === 'creature' && hp < card.hp ? 'damaged' : '';
+            
+            // Classes pour les stats
+            let hpClass = '';
+            let atkClass = '';
+            if (card.type === 'creature') {
+                // HP damaged (rouge) ou boosted (vert)
+                if (hp < card.hp) {
+                    hpClass = 'damaged';
+                } else if (card.baseHp !== undefined && card.hp > card.baseHp) {
+                    hpClass = 'boosted';
+                }
+                // ATK boosted (vert)
+                if (card.baseAtk !== undefined && card.atk > card.baseAtk) {
+                    atkClass = 'boosted';
+                }
+            }
             
             // Type icon for spells and traps
             let typeIcon = '';
@@ -1587,7 +1609,7 @@
                     <div class="card-name">${card.name}</div>
                     <div class="card-abilities">${abilities || (card.type === 'spell' ? (card.offensive ? '⚔️' : '💚') : '')}${patternInfo}</div>
                     <div class="card-stats">
-                        ${card.atk !== undefined ? `<span class="stat stat-atk">${card.atk}</span>` : ''}
+                        ${card.atk !== undefined ? `<span class="stat stat-atk ${atkClass}">${card.atk}</span>` : ''}
                         ${card.damage ? `<span class="stat stat-atk">${card.damage}</span>` : ''}
                         ${card.heal ? `<span class="stat stat-hp">${card.heal}</span>` : ''}
                         ${card.type === 'creature' ? `<span class="stat stat-hp ${hpClass}">${hp}</span>` : ''}
