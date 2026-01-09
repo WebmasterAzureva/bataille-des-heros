@@ -736,29 +736,48 @@
             socket.on('phaseChange', (p) => {
                 if(state) state.phase = p; 
                 updatePhaseDisplay();
+                
+                // Cacher le timer pendant la résolution
+                if (p === 'resolution') {
+                    document.getElementById('header-timer').classList.remove('visible', 'urgent');
+                }
             });
             
             socket.on('phaseMessage', (data) => {
                 showPhaseMessage(data.text, data.type);
             });
             
+            let meReady = false, oppReady = false;
+            
             socket.on('playerReady', (n) => {
                 const isMe = n === myNum;
                 if (isMe) {
+                    meReady = true;
                     document.getElementById('end-turn-btn').classList.add('waiting');
+                } else {
+                    oppReady = true;
                 }
                 log(isMe ? 'Vous êtes prêt' : 'Adversaire prêt', 'action');
+                
+                // Cacher le timer si les deux joueurs sont prêts
+                if (meReady && oppReady) {
+                    document.getElementById('header-timer').classList.remove('visible', 'urgent');
+                }
             });
             
             socket.on('newTurn', (d) => {
                 currentTimer = 90;
+                meReady = false;
+                oppReady = false;
                 document.getElementById('end-turn-btn').classList.remove('waiting');
                 clearSel();
                 updateTimerDisplay(90);
                 log(`🎮 Tour ${d.turn} — ⚡${d.maxEnergy} énergie`, 'phase');
                 
-                // Message éphémère de phase
-                showPhaseMessage('🔄 Phase de repositionnement', 'redeploy');
+                // Message éphémère de phase - seulement s'il y a des créatures à repositionner
+                if (hasCreaturesOnMyField()) {
+                    showPhaseMessage('🔄 Phase de repositionnement', 'redeploy');
+                }
             });
             
             socket.on('resolutionLog', (d) => log(d.msg, d.type));
@@ -1159,12 +1178,16 @@
             el.textContent = text;
             el.className = 'phase-indicator ' + type + ' visible';
             
+            // Marquer qu'un message est en cours d'affichage
+            el.dataset.showing = 'true';
+            
             // Message éphémère sauf pour resolution
             if (type !== 'resolution') {
                 phaseMessageTimeout = setTimeout(() => {
                     el.classList.add('fade-out');
                     phaseMessageFadeTimeout = setTimeout(() => {
                         el.classList.remove('visible');
+                        el.dataset.showing = 'false';
                     }, 500);
                 }, 2000);
             }
@@ -1177,11 +1200,16 @@
             el.classList.add('fade-out');
             phaseMessageFadeTimeout = setTimeout(() => {
                 el.classList.remove('visible');
+                el.dataset.showing = 'false';
             }, 500);
         }
         
         function updatePhaseDisplay() {
             if (!state) return;
+            
+            // Ne pas masquer si un message est en cours d'affichage (avec son propre timeout)
+            const el = document.getElementById('phase-indicator');
+            if (el.dataset.showing === 'true') return;
             
             // Ne pas afficher de message ici - le serveur envoie les messages de sous-phases
             if (state.phase !== 'resolution') {
@@ -1242,7 +1270,18 @@
             buildBattlefield();
             render();
             log('🎮 Tour 1 - Partie lancée !', 'phase');
-            showPhaseMessage('🔄 Phase de repositionnement', 'redeploy');
+            // Pas de popup "Phase de repositionnement" au tour 1 car pas de créatures
+        }
+        
+        // Helper pour vérifier si j'ai des créatures sur le terrain
+        function hasCreaturesOnMyField() {
+            if (!state || !state.me || !state.me.field) return false;
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 2; c++) {
+                    if (state.me.field[r][c]) return true;
+                }
+            }
+            return false;
         }
         
         function keepHand() {
