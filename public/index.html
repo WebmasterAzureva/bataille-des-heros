@@ -396,21 +396,21 @@
         
         /* Highlight des sorts */
         .card-slot.spell-highlight {
-            animation: spellFlash 0.5s ease-out;
+            animation: spellFlash 1.5s ease-out;
         }
         @keyframes spellFlash {
             0% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.9); }
             100% { box-shadow: none; }
         }
         .card-slot.spell-highlight-damage {
-            animation: spellFlashDamage 0.5s ease-out;
+            animation: spellFlashDamage 1.5s ease-out;
         }
         @keyframes spellFlashDamage {
             0% { box-shadow: 0 0 30px rgba(231, 76, 60, 0.9); }
             100% { box-shadow: none; }
         }
         .card-slot.spell-highlight-heal {
-            animation: spellFlashHeal 0.5s ease-out;
+            animation: spellFlashHeal 1.5s ease-out;
         }
         @keyframes spellFlashHeal {
             0% { box-shadow: 0 0 30px rgba(46, 204, 113, 0.9); }
@@ -654,11 +654,6 @@
                 });
             });
             
-            // Message de phase dans le header
-            socket.on('phaseMessage', (data) => {
-                showPhaseMessage(data.text, data.type);
-            });
-            
             // Highlight des cases pour les sorts
             socket.on('spellHighlight', (data) => {
                 data.targets.forEach(t => {
@@ -666,7 +661,7 @@
                     const slot = document.querySelector(`.card-slot[data-owner="${owner}"][data-row="${t.row}"][data-col="${t.col}"]`);
                     if (slot) {
                         slot.classList.add('spell-highlight-' + data.type);
-                        setTimeout(() => slot.classList.remove('spell-highlight-' + data.type), 500);
+                        setTimeout(() => slot.classList.remove('spell-highlight-' + data.type), 1500);
                     }
                 });
             });
@@ -1043,9 +1038,8 @@
         function updatePhaseDisplay() {
             if (!state) return;
             
-            if (state.phase === 'resolution') {
-                showPhaseMessage('⚔️ Résolution du Combat', 'resolution');
-            } else {
+            // Ne pas afficher de message ici - le serveur envoie les messages de sous-phases
+            if (state.phase !== 'resolution') {
                 hidePhaseMessage();
             }
         }
