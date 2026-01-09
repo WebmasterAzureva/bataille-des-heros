@@ -298,6 +298,8 @@ async function startResolution(room) {
     await sleep(1000);
     
     // Collecter toutes les actions par type
+    // Sort défensif = joué sur SES propres emplacements ou son héros
+    // Sort offensif = joué sur les emplacements ADVERSES ou héros adverse
     const allActions = { moves: [], places: [], spellsDefensive: [], spellsOffensive: [], traps: [] };
     
     for (let p = 1; p <= 2; p++) {
@@ -312,8 +314,16 @@ async function startResolution(room) {
             else if (action.type === 'place') allActions.places.push(action);
             else if (action.type === 'trap') allActions.traps.push(action);
             else if (action.type === 'spell') {
-                if (action.spell.offensive) allActions.spellsOffensive.push(action);
-                else allActions.spellsDefensive.push(action);
+                // Classification basée sur la cible, pas sur le type de sort
+                // Défensif = joué sur soi (targetPlayer === joueur qui lance)
+                // Offensif = joué sur l'adversaire
+                const isDefensive = action.targetPlayer === p || 
+                                   action.spell.pattern === 'global' && !action.spell.damage;
+                if (isDefensive) {
+                    allActions.spellsDefensive.push(action);
+                } else {
+                    allActions.spellsOffensive.push(action);
+                }
             }
         }
     }
@@ -326,13 +336,12 @@ async function startResolution(room) {
         await sleep(50);
     }
     
-    // 1. PHASE DE RÉVÉLATION DES POSITIONS
-    io.to(room.code).emit('phaseMessage', { text: '👁️ Révélation des positions', type: 'revelation' });
-    log('👁️ Phase de révélation', 'phase');
-    await sleep(800);
-    
-    // 1a. Redéploiements (repositionnements)
+    // 1. PHASE DE RÉVÉLATION DES DÉPLACEMENTS
     if (allActions.moves.length > 0) {
+        io.to(room.code).emit('phaseMessage', { text: '↔️ Révélation des déplacements', type: 'revelation' });
+        log('↔️ Phase de révélation des déplacements', 'phase');
+        await sleep(600);
+        
         for (const action of allActions.moves) {
             log(`  ↔️ ${action.heroName}: ${action.card.name} ${slotNames[action.fromRow][action.fromCol]} → ${slotNames[action.toRow][action.toCol]}`, 'action');
             emitAnimation(room, 'move', { 
@@ -349,8 +358,12 @@ async function startResolution(room) {
         }
     }
     
-    // 1b. Invocations
+    // 2. PHASE DE RÉVÉLATION DES NOUVELLES CRÉATURES
     if (allActions.places.length > 0) {
+        io.to(room.code).emit('phaseMessage', { text: '🎴 Révélation des invocations', type: 'revelation' });
+        log('🎴 Phase de révélation des invocations', 'phase');
+        await sleep(600);
+        
         for (const action of allActions.places) {
             log(`  🎴 ${action.heroName}: ${action.card.name} en ${slotNames[action.row][action.col]}`, 'action');
             emitAnimation(room, 'summon', { player: action.playerNum, row: action.row, col: action.col, card: action.card, animateForOpponent: true });
@@ -360,12 +373,12 @@ async function startResolution(room) {
         }
     }
     
-    // 1c. Pièges posés
+    // Pièges posés (révélés silencieusement)
     if (allActions.traps.length > 0) {
         for (const action of allActions.traps) {
             log(`  🪤 ${action.heroName}: Piège en rangée ${action.row + 1}`, 'action');
             emitAnimation(room, 'trapPlace', { player: action.playerNum, row: action.row });
-            await sleep(600);
+            await sleep(400);
         }
         emitStateToBoth(room);
     }
@@ -374,12 +387,12 @@ async function startResolution(room) {
         emitStateToBoth(room);
     }
     
-    await sleep(500);
+    await sleep(300);
     
-    // 2. PHASE DES SORTS DE PROTECTION
+    // 3. PHASE DES SORTS DÉFENSIFS (sur soi)
     if (allActions.spellsDefensive.length > 0) {
-        io.to(room.code).emit('phaseMessage', { text: '💚 Sorts de protection', type: 'protection' });
-        log('💚 Phase des sorts de protection', 'phase');
+        io.to(room.code).emit('phaseMessage', { text: '💚 Sorts défensifs', type: 'protection' });
+        log('💚 Phase des sorts défensifs', 'phase');
         await sleep(600);
         
         for (const action of allActions.spellsDefensive) {
@@ -387,10 +400,10 @@ async function startResolution(room) {
         }
     }
     
-    // 3. PHASE DES SORTS D'ATTAQUE
+    // 4. PHASE DES SORTS OFFENSIFS (sur l'adversaire)
     if (allActions.spellsOffensive.length > 0) {
-        io.to(room.code).emit('phaseMessage', { text: '🔥 Sorts d\'attaque', type: 'attack' });
-        log('🔥 Phase des sorts d\'attaque', 'phase');
+        io.to(room.code).emit('phaseMessage', { text: '🔥 Sorts offensifs', type: 'attack' });
+        log('🔥 Phase des sorts offensifs', 'phase');
         await sleep(600);
         
         for (const action of allActions.spellsOffensive) {
@@ -410,7 +423,7 @@ async function startResolution(room) {
     emitStateToBoth(room);
     await sleep(500);
     
-    // 4. PHASE DE COMBAT
+    // 5. PHASE DE COMBAT
     io.to(room.code).emit('phaseMessage', { text: '⚔️ Phase de combat', type: 'combat' });
     log('⚔️ Phase de combat', 'phase');
     await sleep(800);
@@ -461,7 +474,7 @@ async function startResolution(room) {
         return;
     }
     
-    // 5. PIOCHE (début du prochain tour)
+    // 6. PIOCHE
     for (let p = 1; p <= 2; p++) {
         const player = room.gameState.players[p];
         if (player.deck.length > 0) {
@@ -778,7 +791,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
                 targetRow: target.row !== undefined ? target.row : row,
                 targetCol: target.col,
                 targetIsHero: target.isHero,
-                hasInitiative: p1Card.abilities.includes('initiative'),
+                hasInitiative: p1Card.abilities.includes('initiative') && p1Card.canAttack,
                 hasTrample: p1Card.abilities.includes('trample')
             });
         }
@@ -798,7 +811,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
                 targetRow: target.row !== undefined ? target.row : row,
                 targetCol: target.col,
                 targetIsHero: target.isHero,
-                hasInitiative: p2Card.abilities.includes('initiative'),
+                hasInitiative: p2Card.abilities.includes('initiative') && p2Card.canAttack,
                 hasTrample: p2Card.abilities.includes('trample')
             });
         }
@@ -806,13 +819,16 @@ async function processCombatSlot(room, row, col, log, sleep) {
     
     if (attacks.length === 0) return false;
     
-    // Gérer l'Initiative : si les deux ont initiative, ça s'annule
-    const bothHaveInitiative = attacks.length === 2 && attacks[0].hasInitiative && attacks[1].hasInitiative;
+    // Gérer l'Initiative :
+    // - L'initiative ne compte QUE si la créature avec initiative peut attaquer
+    // - Si les deux peuvent attaquer et ont initiative, ça s'annule
+    const bothCanAttack = attacks.length === 2;
+    const bothHaveInitiative = bothCanAttack && attacks[0].hasInitiative && attacks[1].hasInitiative;
     if (bothHaveInitiative) {
         attacks.forEach(a => a.hasInitiative = false);
     }
     
-    // Trier : initiative en premier
+    // Trier : initiative en premier (seulement si la créature peut attaquer)
     attacks.sort((a, b) => (b.hasInitiative ? 1 : 0) - (a.hasInitiative ? 1 : 0));
     
     // Animer les attaques
@@ -830,7 +846,7 @@ async function processCombatSlot(room, row, col, log, sleep) {
     }
     await sleep(500);
     
-    // Traiter chaque attaque séquentiellement (pour l'initiative)
+    // Traiter chaque attaque séquentiellement
     for (const atk of attacks) {
         // Vérifier si l'attaquant est encore vivant
         const attackerCard = room.gameState.players[atk.attackerPlayer].field[atk.attackerRow][atk.attackerCol];
@@ -852,7 +868,6 @@ async function processCombatSlot(room, row, col, log, sleep) {
             const targetCard = room.gameState.players[atk.targetPlayer].field[atk.targetRow][atk.targetCol];
             if (!targetCard) continue;
             
-            const targetHpBefore = targetCard.currentHp;
             const damage = atk.attacker.atk;
             
             // Appliquer les dégâts
@@ -879,11 +894,11 @@ async function processCombatSlot(room, row, col, log, sleep) {
                     trampleCol = 0;
                 }
                 
-                // Vérifier si la créature derrière peut être touchée (pas si volante et attaquant non-volant/tireur)
+                // Vérifier si la créature derrière peut être touchée
                 const attackerIsFlying = atk.attacker.abilities.includes('fly');
                 const attackerIsShooter = atk.attacker.abilities.includes('shooter');
                 if (trampleTarget && trampleTarget.abilities.includes('fly') && !attackerIsFlying && !attackerIsShooter) {
-                    trampleTarget = null; // Ne peut pas toucher le volant
+                    trampleTarget = null;
                 }
                 
                 if (trampleTarget && !trampleTarget.abilities.includes('intangible')) {
@@ -908,21 +923,37 @@ async function processCombatSlot(room, row, col, log, sleep) {
                 }
             }
             
-            // RIPOSTE : seulement si la cible NE PEUT PAS attaquer ce tour ET survit (ou meurt sans initiative de l'attaquant)
-            // ET (l'attaquant N'EST PAS un tireur OU la cible EST un tireur)
-            // ET l'attaquant n'a PAS l'initiative (sinon pas de riposte si cible tuée)
+            // RIPOSTE - Nouvelles règles d'initiative:
+            // Si attaquant a initiative et cible meurt -> pas de riposte
+            // Si attaquant a initiative et cible survit -> la cible riposte
+            // Si attaquant n'a pas initiative et cible ne peut pas attaquer -> la cible riposte (sauf si tireur attaque non-tireur)
+            // Si attaquant n'a pas initiative et cible peut attaquer -> échange normal (pas de riposte ici, la cible attaquera dans sa phase)
             const attackerIsShooter = atk.attacker.abilities.includes('shooter');
             const targetIsShooter = targetCard.abilities?.includes('shooter');
             const targetCanAttack = targetCard.canAttack;
             const targetDied = targetCard.currentHp <= 0;
             
-            // Pas de riposte si attaquant a initiative et cible est morte
-            if (atk.hasInitiative && targetDied) {
-                // Pas de riposte
-            } else if (!targetCanAttack && (!attackerIsShooter || targetIsShooter) && !targetDied) {
-                // Riposte
+            // Pas de riposte si la cible peut attaquer (elle fera ses dégâts dans son tour d'attaque)
+            // Pas de riposte si la cible est morte ET l'attaquant a initiative
+            // Riposte si la cible ne peut PAS attaquer ET survit (ou meurt mais attaquant n'a pas initiative)
+            // Les tireurs évitent la riposte SAUF si la cible est aussi un tireur
+            
+            let shouldRiposte = false;
+            
+            if (targetDied && atk.hasInitiative) {
+                // Cible morte par initiative -> pas de riposte
+                shouldRiposte = false;
+            } else if (!targetCanAttack && !targetDied) {
+                // Cible ne peut pas attaquer et survit -> riposte (sauf règle tireur)
+                shouldRiposte = !attackerIsShooter || targetIsShooter;
+            } else if (atk.hasInitiative && !targetDied && targetCanAttack) {
+                // Attaquant a initiative, cible survit et PEUT attaquer -> cible riposte immédiatement
+                shouldRiposte = true;
+            }
+            
+            if (shouldRiposte) {
                 const attackerCardNow = room.gameState.players[atk.attackerPlayer].field[atk.attackerRow][atk.attackerCol];
-                if (attackerCardNow) {
+                if (attackerCardNow && targetCard.currentHp > 0) {
                     const riposteDamage = targetCard.atk;
                     attackerCardNow.currentHp -= riposteDamage;
                     log(`↩️ ${targetCard.name} riposte sur ${attackerCardNow.name} (-${riposteDamage})`, 'damage');
