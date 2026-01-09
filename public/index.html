@@ -433,6 +433,89 @@
             0% { opacity: 1; transform: translateY(0) scale(1); }
             100% { opacity: 0; transform: translateY(-40px) scale(1.3); }
         }
+        
+        /* Mulligan Overlay */
+        .mulligan-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .mulligan-overlay.hidden { display: none; }
+        .mulligan-title {
+            font-size: 2em;
+            color: #ffd700;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255,215,0,0.5);
+        }
+        .mulligan-subtitle {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .mulligan-hand {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+        }
+        .mulligan-hand .card {
+            transform: scale(1.1);
+            transition: transform 0.2s;
+        }
+        .mulligan-hand .card:hover {
+            transform: scale(1.25) translateY(-10px);
+        }
+        .mulligan-buttons {
+            display: flex;
+            gap: 30px;
+        }
+        .mulligan-btn {
+            padding: 18px 40px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .mulligan-btn.keep {
+            background: linear-gradient(135deg, #27ae60, #1e8449);
+            color: white;
+        }
+        .mulligan-btn.keep:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(39,174,96,0.6);
+        }
+        .mulligan-btn.reroll {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        .mulligan-btn.reroll:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(231,76,60,0.6);
+        }
+        .mulligan-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        .mulligan-waiting {
+            color: #ffd700;
+            font-size: 1.2em;
+            margin-top: 20px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
@@ -451,6 +534,18 @@
             <div class="room-code-display" id="room-code-display">------</div>
             <p class="waiting-text">⏳ En attente d'un adversaire...</p>
         </div>
+    </div>
+    
+    <!-- Mulligan Overlay -->
+    <div class="mulligan-overlay hidden" id="mulligan-overlay">
+        <div class="mulligan-title">🎴 Votre Main de Départ</div>
+        <div class="mulligan-subtitle">Gardez cette main ou piochez 7 nouvelles cartes</div>
+        <div class="mulligan-hand" id="mulligan-hand"></div>
+        <div class="mulligan-buttons" id="mulligan-buttons">
+            <button class="mulligan-btn keep" onclick="keepHand()">✅ Garder</button>
+            <button class="mulligan-btn reroll" onclick="doMulligan()">🔄 Mulligan</button>
+        </div>
+        <div class="mulligan-waiting hidden" id="mulligan-waiting">⏳ En attente de l'adversaire...</div>
     </div>
 
     <div class="game-container" id="game-container">
@@ -558,6 +653,7 @@
         let socket, myNum = 0, state = null;
         let selected = null, dragged = null, draggedFromField = null;
         let currentTimer = 90;
+        let mulliganDone = false;
         
         const SLOT_NAMES = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H']];
         
@@ -569,18 +665,38 @@
                 myNum = s.myPlayer;
                 setupHeroes();
                 document.getElementById('lobby').classList.add('hidden');
-                document.getElementById('game-container').classList.add('active');
-                buildBattlefield();
-                render();
-                log('🎮 Tour 1 - Partie lancée !', 'phase');
                 
-                // Message éphémère initial
-                showPhaseMessage('🔄 Phase de repositionnement', 'redeploy');
+                // Vérifier si on est en phase mulligan
+                if (s.phase === 'mulligan') {
+                    showMulligan();
+                } else {
+                    startGame();
+                }
             });
             
             socket.on('gameStateUpdate', (s) => {
                 const wasInDeployPhase = state?.me?.inDeployPhase;
+                const wasMulligan = state?.phase === 'mulligan';
                 state = s;
+                
+                // Si on est en phase mulligan et qu'on reçoit une mise à jour (après mulligan)
+                if (s.phase === 'mulligan' && mulliganDone) {
+                    // Mettre à jour l'affichage des nouvelles cartes
+                    const handContainer = document.getElementById('mulligan-hand');
+                    handContainer.innerHTML = '';
+                    s.me.hand.forEach(card => {
+                        const cardEl = document.createElement('div');
+                        cardEl.innerHTML = makeCard(card, false, false);
+                        handContainer.appendChild(cardEl.firstChild);
+                    });
+                }
+                
+                // Transition mulligan -> planning
+                if (wasMulligan && s.phase === 'planning') {
+                    document.getElementById('mulligan-overlay').classList.add('hidden');
+                    startGame();
+                }
+                
                 render();
                 updatePhaseDisplay();
                 
@@ -1050,6 +1166,51 @@
             if (state.phase !== 'resolution') {
                 hidePhaseMessage();
             }
+        }
+        
+        // ==================== MULLIGAN ====================
+        function showMulligan() {
+            const overlay = document.getElementById('mulligan-overlay');
+            const handContainer = document.getElementById('mulligan-hand');
+            
+            overlay.classList.remove('hidden');
+            handContainer.innerHTML = '';
+            
+            // Afficher les cartes de la main
+            state.me.hand.forEach(card => {
+                const cardEl = document.createElement('div');
+                cardEl.innerHTML = makeCard(card, false, false);
+                handContainer.appendChild(cardEl.firstChild);
+            });
+        }
+        
+        function startGame() {
+            document.getElementById('mulligan-overlay').classList.add('hidden');
+            document.getElementById('game-container').classList.add('active');
+            buildBattlefield();
+            render();
+            log('🎮 Tour 1 - Partie lancée !', 'phase');
+            showPhaseMessage('🔄 Phase de repositionnement', 'redeploy');
+        }
+        
+        function keepHand() {
+            if (mulliganDone) return;
+            mulliganDone = true;
+            
+            document.getElementById('mulligan-buttons').classList.add('hidden');
+            document.getElementById('mulligan-waiting').classList.remove('hidden');
+            
+            socket.emit('keepHand');
+        }
+        
+        function doMulligan() {
+            if (mulliganDone) return;
+            mulliganDone = true;
+            
+            document.getElementById('mulligan-buttons').classList.add('hidden');
+            document.getElementById('mulligan-waiting').classList.remove('hidden');
+            
+            socket.emit('mulligan');
         }
         
         function setupHeroes() {
