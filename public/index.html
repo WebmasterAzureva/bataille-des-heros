@@ -90,7 +90,7 @@
         
         .card-slot { width: 90px; height: 120px; border: 2px dashed rgba(139,155,200,0.4); border-radius: 6px; background: rgba(139,155,200,0.08); cursor: pointer; transition: all 0.2s; position: relative; display: flex; align-items: center; justify-content: center; }
         .card-slot .slot-label { position: absolute; font-size: 0.65em; color: rgba(255,255,255,0.25); pointer-events: none; }
-        .card-slot:hover { border-color: rgba(255,215,0,0.5); background: rgba(255,215,0,0.1); }
+        .card-slot:not(.has-card):hover { border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.15); }
         .card-slot.me-slot { border-color: rgba(74,124,150,0.4); background: rgba(74,124,150,0.08); }
         .card-slot.opp-slot { border-color: rgba(150,74,100,0.4); background: rgba(150,74,100,0.08); }
         .card-slot.has-card { border-color: transparent; background: transparent; }
@@ -994,17 +994,18 @@
             const timerEl = document.getElementById('header-timer');
             const endTurnBtn = document.getElementById('end-turn-btn');
             
-            if (t <= 15 && state && state.phase === 'planning') {
+            if (t > 0 && t <= 15 && state && state.phase === 'planning') {
                 timerEl.classList.add('visible');
                 timerEl.textContent = t;
                 timerEl.classList.toggle('urgent', t <= 5);
+            } else {
+                // À 0 ou hors phase planning, cacher le timer
+                timerEl.classList.remove('visible', 'urgent');
                 
                 // À 0, griser immédiatement le bouton comme si on avait cliqué
-                if (t <= 0 && !endTurnBtn.classList.contains('waiting')) {
+                if (t <= 0 && state && state.phase === 'planning' && !endTurnBtn.classList.contains('waiting')) {
                     endTurnBtn.classList.add('waiting');
                 }
-            } else {
-                timerEl.classList.remove('visible', 'urgent');
             }
         }
         
