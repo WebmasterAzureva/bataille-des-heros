@@ -1042,12 +1042,12 @@ async function processCombatSlot(room, row, col, log, sleep) {
             }
             
             // RIPOSTE: seulement si la cible NE PEUT PAS attaquer ce tour
+            // Les tireurs ne reçoivent JAMAIS de riposte (attaque à distance)
             const targetCanAttack = targetCard.canAttack;
             const targetDied = targetCard.currentHp <= 0;
             const attackerIsShooter = attackerCard.abilities.includes('shooter');
-            const targetIsShooter = targetCard.abilities?.includes('shooter');
             
-            if (!targetCanAttack && !targetDied && (!attackerIsShooter || targetIsShooter)) {
+            if (!targetCanAttack && !targetDied && !attackerIsShooter) {
                 const riposteDamage = targetCard.atk;
                 attackerCard.currentHp -= riposteDamage;
                 log(`↩️ ${targetCard.name} riposte → ${attackerCard.name} (-${riposteDamage})`, 'damage');
@@ -1137,27 +1137,21 @@ function findTarget(attacker, enemyFront, enemyBack, enemyPlayer, row) {
     
     const frontIsFlying = effectiveFront && effectiveFront.abilities.includes('fly');
     const backIsFlying = effectiveBack && effectiveBack.abilities.includes('fly');
+    const frontIsShooter = effectiveFront && effectiveFront.abilities.includes('shooter');
+    const backIsShooter = effectiveBack && effectiveBack.abilities.includes('shooter');
     
     // CAS 1: Créature VOLANTE
-    // - Bloque TOUTES les créatures (normal, vol, tireur)
-    // - N'est pas bloquée par les normales (attaque héros si que des normales)
-    // - Est bloquée par les tireurs et autres volants
+    // - Attaque directement DERRIÈRE (col 0) si c'est un tireur ou volant
+    // - Sinon attaque le héros directement
+    // - Ne bloque PAS les créatures normales
     if (isFlying) {
-        // Volant vs Volant : combat
-        if (effectiveFront && frontIsFlying) {
-            return { card: effectiveFront, col: 1, row: row, player: enemyPlayer, isHero: false };
-        }
-        if (effectiveBack && backIsFlying) {
+        // Volant regarde d'abord derrière (back = col 0)
+        if (effectiveBack && (backIsFlying || backIsShooter)) {
             return { card: effectiveBack, col: 0, row: row, player: enemyPlayer, isHero: false };
         }
-        // Volant vs Tireur : combat
-        const frontIsShooter = effectiveFront && effectiveFront.abilities.includes('shooter');
-        const backIsShooter = effectiveBack && effectiveBack.abilities.includes('shooter');
-        if (frontIsShooter) {
+        // Puis devant si c'est un volant ou tireur
+        if (effectiveFront && (frontIsFlying || frontIsShooter)) {
             return { card: effectiveFront, col: 1, row: row, player: enemyPlayer, isHero: false };
-        }
-        if (backIsShooter) {
-            return { card: effectiveBack, col: 0, row: row, player: enemyPlayer, isHero: false };
         }
         // Sinon attaque le héros (passe au-dessus des normales)
         return { card: null, col: -1, row: row, player: enemyPlayer, isHero: true };
@@ -1176,27 +1170,21 @@ function findTarget(attacker, enemyFront, enemyBack, enemyPlayer, row) {
     }
     
     // CAS 3: Créature NORMALE
-    // - Est bloquée par les volants (les volants bloquent tout)
-    // - Ne peut pas attaquer les volants, passe à travers eux
+    // - N'est PAS bloquée par les créatures volantes
+    // - Attaque front (col 1) s'il n'est pas volant
+    // - Sinon attaque back (col 0) s'il n'est pas volant
+    // - Sinon attaque le héros (passe à travers les volantes)
     
-    // Si front est volant, il BLOQUE la normale
-    if (frontIsFlying) {
-        return { card: effectiveFront, col: 1, row: row, player: enemyPlayer, isHero: false };
-    }
     // Front non-volant existe -> attaque front
-    if (effectiveFront) {
+    if (effectiveFront && !frontIsFlying) {
         return { card: effectiveFront, col: 1, row: row, player: enemyPlayer, isHero: false };
-    }
-    // Si back est volant, il BLOQUE la normale
-    if (backIsFlying) {
-        return { card: effectiveBack, col: 0, row: row, player: enemyPlayer, isHero: false };
     }
     // Back non-volant existe -> attaque back
-    if (effectiveBack) {
+    if (effectiveBack && !backIsFlying) {
         return { card: effectiveBack, col: 0, row: row, player: enemyPlayer, isHero: false };
     }
     
-    // Rien -> attaque héros
+    // Que des volants ou rien -> attaque héros
     return { card: null, col: -1, row: row, player: enemyPlayer, isHero: true };
 }
 
