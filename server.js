@@ -301,12 +301,7 @@ async function startResolution(room) {
         return null;
     };
     
-    log(`⚔️ RÉSOLUTION DU TOUR ${room.gameState.turn}`, 'phase');
-    await sleep(1000);
-    
     // Collecter toutes les actions par type
-    // Sort défensif = joué sur SES propres emplacements ou son héros
-    // Sort offensif = joué sur les emplacements ADVERSES ou héros adverse
     const allActions = { moves: [], places: [], spellsDefensive: [], spellsOffensive: [], traps: [] };
     
     for (let p = 1; p <= 2; p++) {
@@ -321,9 +316,6 @@ async function startResolution(room) {
             else if (action.type === 'place') allActions.places.push(action);
             else if (action.type === 'trap') allActions.traps.push(action);
             else if (action.type === 'spell') {
-                // Classification basée sur la cible, pas sur le type de sort
-                // Défensif = joué sur soi (targetPlayer === joueur qui lance)
-                // Offensif = joué sur l'adversaire
                 const isDefensive = action.targetPlayer === p || 
                                    action.spell.pattern === 'global' && !action.spell.damage;
                 if (isDefensive) {
@@ -333,6 +325,41 @@ async function startResolution(room) {
                 }
             }
         }
+    }
+    
+    // Vérifier s'il y a des créatures sur le terrain
+    const hasCreaturesOnField = () => {
+        for (let p = 1; p <= 2; p++) {
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 2; c++) {
+                    if (room.gameState.players[p].field[r][c]) return true;
+                }
+            }
+        }
+        return false;
+    };
+    
+    const hasTraps = () => {
+        for (let p = 1; p <= 2; p++) {
+            for (let r = 0; r < 4; r++) {
+                if (room.gameState.players[p].traps[r]) return true;
+            }
+        }
+        return false;
+    };
+    
+    // Vérifier si quelque chose va se passer
+    const hasAnyAction = allActions.moves.length > 0 || 
+                        allActions.places.length > 0 || 
+                        allActions.spellsDefensive.length > 0 || 
+                        allActions.spellsOffensive.length > 0 ||
+                        allActions.traps.length > 0 ||
+                        hasCreaturesOnField() ||
+                        hasTraps();
+    
+    if (hasAnyAction) {
+        log(`⚔️ RÉSOLUTION DU TOUR ${room.gameState.turn}`, 'phase');
+        await sleep(800);
     }
     
     // Collecter les slots qui vont recevoir des créatures
@@ -390,12 +417,6 @@ async function startResolution(room) {
         emitStateToBoth(room);
     }
     
-    if (allActions.moves.length === 0 && allActions.places.length === 0 && allActions.traps.length === 0) {
-        emitStateToBoth(room);
-    }
-    
-    await sleep(300);
-    
     // 3. PHASE DES SORTS DÉFENSIFS (sur soi)
     if (allActions.spellsDefensive.length > 0) {
         io.to(room.code).emit('phaseMessage', { text: '💚 Sorts défensifs', type: 'protection' });
@@ -428,31 +449,33 @@ async function startResolution(room) {
     }
     
     emitStateToBoth(room);
-    await sleep(500);
+    await sleep(300);
     
-    // 5. PHASE DE COMBAT
-    io.to(room.code).emit('phaseMessage', { text: '⚔️ Phase de combat', type: 'combat' });
-    log('⚔️ Phase de combat', 'phase');
-    await sleep(800);
-    
-    // D'abord résoudre tous les pièges par rangée
-    for (let row = 0; row < 4; row++) {
-        await processTrapsForRow(room, row, log, sleep);
-    }
-    
-    // Combat dans l'ordre: A -> B -> C -> D -> E -> F -> G -> H
-    for (let row = 0; row < 4; row++) {
-        for (let col = 0; col < 2; col++) {
-            const gameEnded = await processCombatSlot(room, row, col, log, sleep);
-            
-            // Arrêter le combat si un joueur est mort
-            if (gameEnded) {
-                const winner = checkVictory();
-                if (winner) {
-                    await sleep(800);
-                    log(`🏆 ${room.gameState.players[winner].heroName} GAGNE!`, 'phase');
-                    io.to(room.code).emit('gameOver', { winner });
-                    return;
+    // 5. PHASE DE COMBAT - seulement s'il y a des créatures ou des pièges
+    if (hasCreaturesOnField() || hasTraps()) {
+        io.to(room.code).emit('phaseMessage', { text: '⚔️ Phase de combat', type: 'combat' });
+        log('⚔️ Phase de combat', 'phase');
+        await sleep(800);
+        
+        // D'abord résoudre tous les pièges par rangée
+        for (let row = 0; row < 4; row++) {
+            await processTrapsForRow(room, row, log, sleep);
+        }
+        
+        // Combat dans l'ordre: A -> B -> C -> D -> E -> F -> G -> H
+        for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 2; col++) {
+                const gameEnded = await processCombatSlot(room, row, col, log, sleep);
+                
+                // Arrêter le combat si un joueur est mort
+                if (gameEnded) {
+                    const winner = checkVictory();
+                    if (winner) {
+                        await sleep(800);
+                        log(`🏆 ${room.gameState.players[winner].heroName} GAGNE!`, 'phase');
+                        io.to(room.code).emit('gameOver', { winner });
+                        return;
+                    }
                 }
             }
         }
