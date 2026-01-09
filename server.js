@@ -856,6 +856,44 @@ async function processCombatSlot(room, row, col, log, sleep) {
             const bothHaveInitiative = atk1.hasInitiative && atk2.hasInitiative;
             const oneHasInitiative = atk1.hasInitiative !== atk2.hasInitiative;
             
+            // Helper pour appliquer le piétinement
+            const applyTrample = async (attacker, target, atkData) => {
+                if (!atkData.hasTrample || target.currentHp >= 0) return;
+                
+                const excessDamage = Math.abs(target.currentHp);
+                const targetOwner = room.gameState.players[atkData.targetPlayer];
+                
+                // Chercher la créature derrière (col 0 si on était sur col 1)
+                let trampleTarget = null;
+                let trampleCol = -1;
+                if (atkData.targetCol === 1) {
+                    trampleTarget = targetOwner.field[atkData.targetRow][0];
+                    trampleCol = 0;
+                }
+                
+                // Vérifier si la créature derrière peut être touchée
+                const attackerIsFlying = attacker.abilities.includes('fly');
+                const attackerIsShooter = attacker.abilities.includes('shooter');
+                if (trampleTarget && trampleTarget.abilities.includes('fly') && !attackerIsFlying && !attackerIsShooter) {
+                    trampleTarget = null;
+                }
+                
+                if (trampleTarget && !trampleTarget.abilities.includes('intangible')) {
+                    trampleTarget.currentHp -= excessDamage;
+                    log(`🦏 Piétinement: ${attacker.name} → ${trampleTarget.name} (-${excessDamage})`, 'damage');
+                    emitAnimation(room, 'damage', { player: atkData.targetPlayer, row: atkData.targetRow, col: trampleCol, amount: excessDamage });
+                    
+                    if (trampleTarget.currentHp > 0 && trampleTarget.abilities.includes('power')) {
+                        trampleTarget.pendingPowerBonus = (trampleTarget.pendingPowerBonus || 0) + 1;
+                    }
+                } else if (excessDamage > 0) {
+                    targetOwner.hp -= excessDamage;
+                    log(`🦏 Piétinement: ${attacker.name} → ${targetOwner.heroName} (-${excessDamage})`, 'damage');
+                    emitAnimation(room, 'heroHit', { defender: atkData.targetPlayer, damage: excessDamage });
+                    io.to(room.code).emit('directDamage', { defender: atkData.targetPlayer, damage: excessDamage });
+                }
+            };
+            
             if (bothHaveInitiative || !oneHasInitiative) {
                 // Dégâts SIMULTANÉS - les deux s'infligent des dégâts en même temps
                 const dmg1to2 = atk1.attacker.atk;
@@ -876,6 +914,10 @@ async function processCombatSlot(room, row, col, log, sleep) {
                     atk2.attacker.pendingPowerBonus = (atk2.attacker.pendingPowerBonus || 0) + 1;
                 }
                 
+                // Piétinement - s'applique même si l'attaquant meurt car il a attaqué
+                await applyTrample(atk1.attacker, atk2.attacker, atk1);
+                await applyTrample(atk2.attacker, atk1.attacker, atk2);
+                
             } else {
                 // Une seule a initiative - elle attaque en premier
                 const first = atk1.hasInitiative ? atk1 : atk2;
@@ -890,6 +932,9 @@ async function processCombatSlot(room, row, col, log, sleep) {
                 if (second.attacker.currentHp > 0 && second.attacker.abilities.includes('power')) {
                     second.attacker.pendingPowerBonus = (second.attacker.pendingPowerBonus || 0) + 1;
                 }
+                
+                // Piétinement du premier (même si le second va riposter et le tuer)
+                await applyTrample(first.attacker, second.attacker, first);
                 
                 // Second riposte seulement s'il survit
                 if (second.attacker.currentHp > 0) {
@@ -910,8 +955,18 @@ async function processCombatSlot(room, row, col, log, sleep) {
             emitStateToBoth(room);
             await sleep(400);
             
-            // Vérifier les morts
-            await checkAndRemoveDeadCreatures(room, [[row, col]], log, sleep);
+            // Vérifier les morts (inclure les slots derrière pour le piétinement)
+            const slotsToCheck = [[row, col]];
+            if (atk1.targetCol === 1) slotsToCheck.push([atk1.targetRow, 0]);
+            if (atk2.targetCol === 1) slotsToCheck.push([atk2.targetRow, 0]);
+            await checkAndRemoveDeadCreatures(room, slotsToCheck, log, sleep);
+            
+            // Vérifier victoire après piétinement
+            const p1hp = room.gameState.players[1].hp;
+            const p2hp = room.gameState.players[2].hp;
+            if (p1hp <= 0 || p2hp <= 0) {
+                return true;
+            }
             
             return false;
         }
