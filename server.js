@@ -1242,12 +1242,14 @@ function startNewTurn(room) {
         resetPlayerForNewTurn(player);
     }
     
+    // Envoyer l'état AVANT newTurn pour que le client ait les données à jour
+    emitStateToBoth(room);
+    
     io.to(room.code).emit('newTurn', { 
         turn: room.gameState.turn, 
         maxEnergy: room.gameState.players[1].maxEnergy 
     });
     
-    emitStateToBoth(room);
     startTurnTimer(room);
 }
 
