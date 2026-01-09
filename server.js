@@ -462,9 +462,27 @@ async function startResolution(room) {
             await processTrapsForRow(room, row, log, sleep);
         }
         
-        // Combat par rangée (pour détecter les combats mutuels entre slots différents)
+        const rowNames = ['A', 'B', 'C', 'D'];
+        
+        // Combat par rangée SÉQUENTIEL : A, puis B, puis C, puis D
         for (let row = 0; row < 4; row++) {
+            // Vérifier s'il y a des créatures qui peuvent attaquer dans cette rangée
+            const p1Card0 = room.gameState.players[1].field[row][0];
+            const p1Card1 = room.gameState.players[1].field[row][1];
+            const p2Card0 = room.gameState.players[2].field[row][0];
+            const p2Card1 = room.gameState.players[2].field[row][1];
+            
+            const hasAttackers = (p1Card0 && p1Card0.canAttack) || 
+                                (p1Card1 && p1Card1.canAttack) ||
+                                (p2Card0 && p2Card0.canAttack) ||
+                                (p2Card1 && p2Card1.canAttack);
+            
+            if (hasAttackers) {
+                log(`📍 Rangée ${rowNames[row]}`, 'phase');
+            }
+            
             const gameEnded = await processCombatRow(room, row, log, sleep, checkVictory);
+            
             if (gameEnded) {
                 const winner = checkVictory();
                 if (winner) {
@@ -473,6 +491,11 @@ async function startResolution(room) {
                     io.to(room.code).emit('gameOver', { winner });
                     return;
                 }
+            }
+            
+            // Pause entre les rangées pour bien séparer visuellement
+            if (hasAttackers) {
+                await sleep(300);
             }
         }
     }
@@ -1153,6 +1176,7 @@ async function checkAndRemoveDeadCreatures(room, slotsToCheck, log, sleep) {
 async function processCombatRow(room, row, log, sleep, checkVictory) {
     const p1State = room.gameState.players[1];
     const p2State = room.gameState.players[2];
+    const rowNames = ['A', 'B', 'C', 'D'];
     
     // Collecter TOUTES les attaques de cette rangée
     const attacks = [];
@@ -1177,6 +1201,7 @@ async function processCombatRow(room, row, log, sleep, checkVictory) {
                     hasInitiative: p1Card.abilities.includes('initiative'),
                     hasTrample: p1Card.abilities.includes('trample'),
                     isShooter: p1Card.abilities.includes('shooter'),
+                    isFlying: p1Card.abilities.includes('fly'),
                     processed: false
                 });
             }
@@ -1200,6 +1225,7 @@ async function processCombatRow(room, row, log, sleep, checkVictory) {
                     hasInitiative: p2Card.abilities.includes('initiative'),
                     hasTrample: p2Card.abilities.includes('trample'),
                     isShooter: p2Card.abilities.includes('shooter'),
+                    isFlying: p2Card.abilities.includes('fly'),
                     processed: false
                 });
             }
@@ -1208,7 +1234,7 @@ async function processCombatRow(room, row, log, sleep, checkVictory) {
     
     if (attacks.length === 0) return false;
     
-    // Animer toutes les attaques
+    // Animer toutes les attaques de cette rangée
     for (const atk of attacks) {
         emitAnimation(room, 'attack', {
             attacker: atk.attackerPlayer,
@@ -1217,7 +1243,7 @@ async function processCombatRow(room, row, log, sleep, checkVictory) {
             targetPlayer: atk.targetPlayer,
             targetRow: atk.targetRow,
             targetCol: atk.targetIsHero ? -1 : atk.targetCol,
-            isFlying: atk.attacker.abilities.includes('fly'),
+            isFlying: atk.isFlying,
             isShooter: atk.isShooter
         });
     }
