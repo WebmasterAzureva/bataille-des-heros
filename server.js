@@ -17,6 +17,19 @@ const rooms = new Map();
 const playerRooms = new Map();
 const TURN_TIME = 90;
 
+// Générer un code de room unique
+function generateRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code;
+    do {
+        code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars[Math.floor(Math.random() * chars.length)];
+        }
+    } while (rooms.has(code));
+    return code;
+}
+
 function deepClone(obj) {
     if (obj === null || obj === undefined) return obj;
     return JSON.parse(JSON.stringify(obj));
