@@ -116,6 +116,8 @@ function createDeck() {
         const card = { ...pool[Math.floor(Math.random() * pool.length)], uid: `${Date.now()}-${Math.random()}-${i}` };
         if (card.type === 'creature') {
             card.currentHp = card.hp;
+            card.baseAtk = card.atk; // Stats de base pour comparaison
+            card.baseHp = card.hp;
             card.canAttack = false;
             card.turnsOnField = 0;
             card.movedThisTurn = false;
@@ -875,10 +877,9 @@ async function processCombatSlot(room, row, col, log, sleep) {
             log(`⚔️ ${atk.attacker.name} → ${targetCard.name} (-${damage})`, 'damage');
             emitAnimation(room, 'damage', { player: atk.targetPlayer, row: atk.targetRow, col: atk.targetCol, amount: damage });
             
-            // Pouvoir : si la cible a 'power' et survit, elle gagne +1 ATK
+            // Stocker le bonus power à appliquer APRÈS le combat (pas immédiatement)
             if (targetCard.currentHp > 0 && targetCard.abilities.includes('power')) {
-                targetCard.atk += 1;
-                log(`💪 ${targetCard.name} gagne +1 ATK!`, 'action');
+                targetCard.pendingPowerBonus = (targetCard.pendingPowerBonus || 0) + 1;
             }
             
             // Piétinement : si la cible meurt, les dégâts excédentaires passent
@@ -906,9 +907,9 @@ async function processCombatSlot(room, row, col, log, sleep) {
                     log(`🦏 Piétinement: ${atk.attacker.name} → ${trampleTarget.name} (-${excessDamage})`, 'damage');
                     emitAnimation(room, 'damage', { player: atk.targetPlayer, row: atk.targetRow, col: trampleCol, amount: excessDamage });
                     
+                    // Stocker le bonus power pour plus tard
                     if (trampleTarget.currentHp > 0 && trampleTarget.abilities.includes('power')) {
-                        trampleTarget.atk += 1;
-                        log(`💪 ${trampleTarget.name} gagne +1 ATK!`, 'action');
+                        trampleTarget.pendingPowerBonus = (trampleTarget.pendingPowerBonus || 0) + 1;
                     }
                 } else if (excessDamage > 0) {
                     // Dégâts au héros
@@ -959,10 +960,24 @@ async function processCombatSlot(room, row, col, log, sleep) {
                     log(`↩️ ${targetCard.name} riposte sur ${attackerCardNow.name} (-${riposteDamage})`, 'damage');
                     emitAnimation(room, 'damage', { player: atk.attackerPlayer, row: atk.attackerRow, col: atk.attackerCol, amount: riposteDamage });
                     
+                    // Stocker le bonus power pour plus tard
                     if (attackerCardNow.currentHp > 0 && attackerCardNow.abilities.includes('power')) {
-                        attackerCardNow.atk += 1;
-                        log(`💪 ${attackerCardNow.name} gagne +1 ATK!`, 'action');
+                        attackerCardNow.pendingPowerBonus = (attackerCardNow.pendingPowerBonus || 0) + 1;
                     }
+                }
+            }
+        }
+    }
+    
+    // Appliquer les bonus Power APRÈS tous les échanges de dégâts
+    for (let p = 1; p <= 2; p++) {
+        for (let r = 0; r < 4; r++) {
+            for (let c = 0; c < 2; c++) {
+                const card = room.gameState.players[p].field[r][c];
+                if (card && card.pendingPowerBonus > 0 && card.currentHp > 0) {
+                    card.atk += card.pendingPowerBonus;
+                    log(`💪 ${card.name} gagne +${card.pendingPowerBonus} ATK!`, 'action');
+                    card.pendingPowerBonus = 0;
                 }
             }
         }
