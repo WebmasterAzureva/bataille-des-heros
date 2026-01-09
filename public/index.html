@@ -707,8 +707,8 @@
                     const handContainer = document.getElementById('mulligan-hand');
                     handContainer.innerHTML = '';
                     s.me.hand.forEach(card => {
-                        const cardHtml = makeCard(card, false, false);
-                        handContainer.insertAdjacentHTML('beforeend', cardHtml);
+                        const cardEl = makeCard(card, true);
+                        handContainer.appendChild(cardEl);
                     });
                 }
                 
@@ -1199,10 +1199,10 @@
             overlay.classList.remove('hidden');
             handContainer.innerHTML = '';
             
-            // Afficher les cartes de la main
+            // Afficher les cartes de la main (makeCard retourne un élément DOM)
             state.me.hand.forEach(card => {
-                const cardHtml = makeCard(card, false, false);
-                handContainer.insertAdjacentHTML('beforeend', cardHtml);
+                const cardEl = makeCard(card, true);
+                handContainer.appendChild(cardEl);
             });
             
             // Démarrer le timer de 15 secondes
