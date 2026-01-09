@@ -462,20 +462,16 @@ async function startResolution(room) {
             await processTrapsForRow(room, row, log, sleep);
         }
         
-        // Combat dans l'ordre: A -> B -> C -> D -> E -> F -> G -> H
+        // Combat par rangée (pour détecter les combats mutuels entre slots différents)
         for (let row = 0; row < 4; row++) {
-            for (let col = 0; col < 2; col++) {
-                const gameEnded = await processCombatSlot(room, row, col, log, sleep);
-                
-                // Arrêter le combat si un joueur est mort
-                if (gameEnded) {
-                    const winner = checkVictory();
-                    if (winner) {
-                        await sleep(800);
-                        log(`🏆 ${room.gameState.players[winner].heroName} GAGNE!`, 'phase');
-                        io.to(room.code).emit('gameOver', { winner });
-                        return;
-                    }
+            const gameEnded = await processCombatRow(room, row, log, sleep, checkVictory);
+            if (gameEnded) {
+                const winner = checkVictory();
+                if (winner) {
+                    await sleep(800);
+                    log(`🏆 ${room.gameState.players[winner].heroName} GAGNE!`, 'phase');
+                    io.to(room.code).emit('gameOver', { winner });
+                    return;
                 }
             }
         }
@@ -1152,8 +1148,289 @@ async function checkAndRemoveDeadCreatures(room, slotsToCheck, log, sleep) {
     await sleep(300);
 }
 
-async function processCombatRow(room, row, log, sleep) {
-    // Fonction obsolète - gardée pour compatibilité
+// Traiter le combat pour une rangée entière
+// Détecte les combats mutuels même entre slots différents (ex: volante col1 vs tireur col0)
+async function processCombatRow(room, row, log, sleep, checkVictory) {
+    const p1State = room.gameState.players[1];
+    const p2State = room.gameState.players[2];
+    
+    // Collecter TOUTES les attaques de cette rangée
+    const attacks = [];
+    
+    // Parcourir les 2 colonnes pour chaque joueur
+    for (let col = 0; col < 2; col++) {
+        // Créature du joueur 1
+        const p1Card = p1State.field[row][col];
+        if (p1Card && p1Card.canAttack) {
+            const target = findTarget(p1Card, p2State.field[row][1], p2State.field[row][0], 2, row);
+            if (target) {
+                attacks.push({
+                    attacker: p1Card,
+                    attackerPlayer: 1,
+                    attackerRow: row,
+                    attackerCol: col,
+                    target: target.card,
+                    targetPlayer: target.player,
+                    targetRow: target.row,
+                    targetCol: target.col,
+                    targetIsHero: target.isHero,
+                    hasInitiative: p1Card.abilities.includes('initiative'),
+                    hasTrample: p1Card.abilities.includes('trample'),
+                    isShooter: p1Card.abilities.includes('shooter'),
+                    processed: false
+                });
+            }
+        }
+        
+        // Créature du joueur 2
+        const p2Card = p2State.field[row][col];
+        if (p2Card && p2Card.canAttack) {
+            const target = findTarget(p2Card, p1State.field[row][1], p1State.field[row][0], 1, row);
+            if (target) {
+                attacks.push({
+                    attacker: p2Card,
+                    attackerPlayer: 2,
+                    attackerRow: row,
+                    attackerCol: col,
+                    target: target.card,
+                    targetPlayer: target.player,
+                    targetRow: target.row,
+                    targetCol: target.col,
+                    targetIsHero: target.isHero,
+                    hasInitiative: p2Card.abilities.includes('initiative'),
+                    hasTrample: p2Card.abilities.includes('trample'),
+                    isShooter: p2Card.abilities.includes('shooter'),
+                    processed: false
+                });
+            }
+        }
+    }
+    
+    if (attacks.length === 0) return false;
+    
+    // Animer toutes les attaques
+    for (const atk of attacks) {
+        emitAnimation(room, 'attack', {
+            attacker: atk.attackerPlayer,
+            row: atk.attackerRow,
+            col: atk.attackerCol,
+            targetPlayer: atk.targetPlayer,
+            targetRow: atk.targetRow,
+            targetCol: atk.targetIsHero ? -1 : atk.targetCol,
+            isFlying: atk.attacker.abilities.includes('fly'),
+            isShooter: atk.isShooter
+        });
+    }
+    await sleep(500);
+    
+    // Identifier les combats mutuels (A attaque B et B attaque A)
+    const mutualPairs = [];
+    for (let i = 0; i < attacks.length; i++) {
+        if (attacks[i].processed || attacks[i].targetIsHero) continue;
+        
+        for (let j = i + 1; j < attacks.length; j++) {
+            if (attacks[j].processed || attacks[j].targetIsHero) continue;
+            
+            const atk1 = attacks[i];
+            const atk2 = attacks[j];
+            
+            // Vérifier si elles se ciblent mutuellement
+            const atk1TargetsAtk2 = atk1.targetPlayer === atk2.attackerPlayer && 
+                                   atk1.targetRow === atk2.attackerRow && 
+                                   atk1.targetCol === atk2.attackerCol;
+            const atk2TargetsAtk1 = atk2.targetPlayer === atk1.attackerPlayer && 
+                                   atk2.targetRow === atk1.attackerRow && 
+                                   atk2.targetCol === atk1.attackerCol;
+            
+            if (atk1TargetsAtk2 && atk2TargetsAtk1) {
+                mutualPairs.push([atk1, atk2]);
+                atk1.processed = true;
+                atk2.processed = true;
+            }
+        }
+    }
+    
+    // Traiter les combats mutuels
+    for (const [atk1, atk2] of mutualPairs) {
+        const bothHaveInitiative = atk1.hasInitiative && atk2.hasInitiative;
+        const oneHasInitiative = atk1.hasInitiative !== atk2.hasInitiative;
+        
+        if (bothHaveInitiative || !oneHasInitiative) {
+            // Dégâts SIMULTANÉS
+            const dmg1to2 = atk1.attacker.atk;
+            const dmg2to1 = atk2.attacker.atk;
+            
+            atk2.attacker.currentHp -= dmg1to2;
+            atk1.attacker.currentHp -= dmg2to1;
+            
+            log(`⚔️ ${atk1.attacker.name} ↔ ${atk2.attacker.name} (-${dmg1to2} / -${dmg2to1})`, 'damage');
+            emitAnimation(room, 'damage', { player: atk2.attackerPlayer, row: atk2.attackerRow, col: atk2.attackerCol, amount: dmg1to2 });
+            emitAnimation(room, 'damage', { player: atk1.attackerPlayer, row: atk1.attackerRow, col: atk1.attackerCol, amount: dmg2to1 });
+            
+            // Power bonus
+            if (atk1.attacker.currentHp > 0 && atk1.attacker.abilities.includes('power')) {
+                atk1.attacker.pendingPowerBonus = (atk1.attacker.pendingPowerBonus || 0) + 1;
+            }
+            if (atk2.attacker.currentHp > 0 && atk2.attacker.abilities.includes('power')) {
+                atk2.attacker.pendingPowerBonus = (atk2.attacker.pendingPowerBonus || 0) + 1;
+            }
+            
+            // Piétinement pour les deux
+            await applyTrampleDamage(room, atk1, log, sleep);
+            await applyTrampleDamage(room, atk2, log, sleep);
+            
+        } else {
+            // Une seule a initiative - elle attaque en premier
+            const first = atk1.hasInitiative ? atk1 : atk2;
+            const second = atk1.hasInitiative ? atk2 : atk1;
+            
+            const dmgFirst = first.attacker.atk;
+            second.attacker.currentHp -= dmgFirst;
+            log(`⚔️ ${first.attacker.name} → ${second.attacker.name} (-${dmgFirst}) [Initiative]`, 'damage');
+            emitAnimation(room, 'damage', { player: second.attackerPlayer, row: second.attackerRow, col: second.attackerCol, amount: dmgFirst });
+            
+            if (second.attacker.currentHp > 0 && second.attacker.abilities.includes('power')) {
+                second.attacker.pendingPowerBonus = (second.attacker.pendingPowerBonus || 0) + 1;
+            }
+            
+            // Piétinement du premier
+            await applyTrampleDamage(room, first, log, sleep);
+            
+            // Second contre-attaque seulement s'il survit
+            if (second.attacker.currentHp > 0) {
+                const dmgSecond = second.attacker.atk;
+                first.attacker.currentHp -= dmgSecond;
+                log(`↩️ ${second.attacker.name} contre-attaque → ${first.attacker.name} (-${dmgSecond})`, 'damage');
+                emitAnimation(room, 'damage', { player: first.attackerPlayer, row: first.attackerRow, col: first.attackerCol, amount: dmgSecond });
+                
+                if (first.attacker.currentHp > 0 && first.attacker.abilities.includes('power')) {
+                    first.attacker.pendingPowerBonus = (first.attacker.pendingPowerBonus || 0) + 1;
+                }
+            }
+        }
+    }
+    
+    // Traiter les attaques non-mutuelles (restantes)
+    for (const atk of attacks) {
+        if (atk.processed) continue;
+        atk.processed = true;
+        
+        // Vérifier si l'attaquant est encore vivant
+        const attackerCard = room.gameState.players[atk.attackerPlayer].field[atk.attackerRow][atk.attackerCol];
+        if (!attackerCard || attackerCard.currentHp <= 0) continue;
+        
+        if (atk.targetIsHero) {
+            room.gameState.players[atk.targetPlayer].hp -= attackerCard.atk;
+            log(`⚔️ ${attackerCard.name} → ${room.gameState.players[atk.targetPlayer].heroName} (-${attackerCard.atk})`, 'damage');
+            emitAnimation(room, 'heroHit', { defender: atk.targetPlayer, damage: attackerCard.atk });
+            io.to(room.code).emit('directDamage', { defender: atk.targetPlayer, damage: attackerCard.atk });
+            
+            if (room.gameState.players[atk.targetPlayer].hp <= 0) {
+                applyPendingPowerBonuses(room, log);
+                emitStateToBoth(room);
+                return true;
+            }
+        } else {
+            const targetCard = room.gameState.players[atk.targetPlayer].field[atk.targetRow][atk.targetCol];
+            if (!targetCard) continue;
+            
+            const damage = attackerCard.atk;
+            targetCard.currentHp -= damage;
+            log(`⚔️ ${attackerCard.name} → ${targetCard.name} (-${damage})`, 'damage');
+            emitAnimation(room, 'damage', { player: atk.targetPlayer, row: atk.targetRow, col: atk.targetCol, amount: damage });
+            
+            if (targetCard.currentHp > 0 && targetCard.abilities.includes('power')) {
+                targetCard.pendingPowerBonus = (targetCard.pendingPowerBonus || 0) + 1;
+            }
+            
+            // Piétinement
+            await applyTrampleDamage(room, atk, log, sleep);
+            
+            // RIPOSTE: seulement si cible ne peut pas attaquer ET attaquant n'est pas tireur
+            const targetCanAttack = targetCard.canAttack;
+            const targetDied = targetCard.currentHp <= 0;
+            const attackerHasInitiative = attackerCard.abilities.includes('initiative');
+            const targetHasInitiative = targetCard.abilities?.includes('initiative');
+            const effectiveInitiative = attackerHasInitiative && !targetHasInitiative;
+            
+            // Pas de riposte si:
+            // - La cible peut attaquer (elle attaquera/a attaqué dans son propre tour)
+            // - L'attaquant est un tireur (attaque à distance)
+            // - L'attaquant a initiative effective et a tué la cible
+            if (!targetCanAttack && !atk.isShooter && (!effectiveInitiative || !targetDied)) {
+                const riposteDamage = targetCard.atk;
+                attackerCard.currentHp -= riposteDamage;
+                log(`↩️ ${targetCard.name} riposte → ${attackerCard.name} (-${riposteDamage})`, 'damage');
+                emitAnimation(room, 'damage', { player: atk.attackerPlayer, row: atk.attackerRow, col: atk.attackerCol, amount: riposteDamage });
+                
+                if (attackerCard.currentHp > 0 && attackerCard.abilities.includes('power')) {
+                    attackerCard.pendingPowerBonus = (attackerCard.pendingPowerBonus || 0) + 1;
+                }
+            }
+        }
+    }
+    
+    // Appliquer les bonus Power
+    applyPendingPowerBonuses(room, log);
+    
+    emitStateToBoth(room);
+    await sleep(400);
+    
+    // Vérifier et retirer les créatures mortes
+    const slotsToCheck = [];
+    for (const atk of attacks) {
+        slotsToCheck.push([atk.attackerRow, atk.attackerCol]);
+        if (!atk.targetIsHero) {
+            slotsToCheck.push([atk.targetRow, atk.targetCol]);
+        }
+    }
+    await checkAndRemoveDeadCreatures(room, slotsToCheck, log, sleep);
+    
+    // Vérifier victoire
+    if (checkVictory && checkVictory()) {
+        return true;
+    }
+    
+    return false;
+}
+
+// Helper pour appliquer les dégâts de piétinement
+async function applyTrampleDamage(room, atk, log, sleep) {
+    if (!atk.hasTrample) return;
+    
+    const targetCard = room.gameState.players[atk.targetPlayer].field[atk.targetRow]?.[atk.targetCol];
+    if (!targetCard || targetCard.currentHp >= 0) return;
+    
+    const excessDamage = Math.abs(targetCard.currentHp);
+    const targetOwner = room.gameState.players[atk.targetPlayer];
+    
+    let trampleTarget = null;
+    let trampleCol = -1;
+    if (atk.targetCol === 1) {
+        trampleTarget = targetOwner.field[atk.targetRow][0];
+        trampleCol = 0;
+    }
+    
+    const attackerIsFlying = atk.attacker.abilities.includes('fly');
+    const attackerIsShooter = atk.isShooter;
+    if (trampleTarget && trampleTarget.abilities.includes('fly') && !attackerIsFlying && !attackerIsShooter) {
+        trampleTarget = null;
+    }
+    
+    if (trampleTarget && !trampleTarget.abilities.includes('intangible')) {
+        trampleTarget.currentHp -= excessDamage;
+        log(`🦏 Piétinement: ${atk.attacker.name} → ${trampleTarget.name} (-${excessDamage})`, 'damage');
+        emitAnimation(room, 'damage', { player: atk.targetPlayer, row: atk.targetRow, col: trampleCol, amount: excessDamage });
+        
+        if (trampleTarget.currentHp > 0 && trampleTarget.abilities.includes('power')) {
+            trampleTarget.pendingPowerBonus = (trampleTarget.pendingPowerBonus || 0) + 1;
+        }
+    } else if (excessDamage > 0 && !trampleTarget) {
+        targetOwner.hp -= excessDamage;
+        log(`🦏 Piétinement: ${atk.attacker.name} → ${targetOwner.heroName} (-${excessDamage})`, 'damage');
+        emitAnimation(room, 'heroHit', { defender: atk.targetPlayer, damage: excessDamage });
+        io.to(room.code).emit('directDamage', { defender: atk.targetPlayer, damage: excessDamage });
+    }
 }
 
 // Trouver la cible d'une créature
